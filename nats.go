@@ -124,7 +124,8 @@ func (bus *Bus) HandleError(replySubject string, err error) {
 	})
 
 	if errx == nil {
-		bus.Connection.Publish(replySubject, data)
+		one := []byte{1}
+		bus.Connection.Publish(replySubject, append(one, data...))
 	}
 }
 
@@ -162,7 +163,8 @@ func (bus *Bus) subscribe(subject string) error {
 					if err != nil {
 						bus.HandleError(m.Reply, err)
 					} else {
-						bus.Connection.Publish(m.Reply, raw)
+						zero := []byte{0}
+						bus.Connection.Publish(m.Reply, append(zero, raw...))
 					}
 				}
 			}
@@ -208,17 +210,20 @@ func (bus *Bus) Call(ctx context.Context, fn interface{}, req proto.Message, res
 		return err
 	}
 
-	var pErr ErrorMessage
-	err = proto.Unmarshal(result.Data, &pErr)
-	if err == nil {
-		return errors.New(pErr.ErrorMessage)
-	}
+	if result.Data[0] == 0 {
+		p, ok := resp.(proto.Message)
+		if ok == false {
+			return errors.New("invalid-response-type")
+		}
+		err = proto.Unmarshal(result.Data[1:], p)
+	} else {
+		var pErr ErrorMessage
+		err = proto.Unmarshal(result.Data[1:], &pErr)
 
-	p, ok := resp.(proto.Message)
-	if ok == false {
-		return errors.New("invalid-response-type")
+		if err == nil {
+			return errors.New(pErr.ErrorMessage)
+		}
 	}
-	err = proto.Unmarshal(result.Data, p)
 
 	return err
 

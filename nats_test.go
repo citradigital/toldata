@@ -101,8 +101,9 @@ func TestOK1(t *testing.T) {
 	var resp TestAResponse
 	err = client.Call(ctx, d.GetTestA, &TestARequest{Input: "OK"}, &resp)
 
-	assert.NotEqual(t, nil, err)
-	assert.Equal(t, "OK", err.Error())
+	log.Println(err)
+	assert.Equal(t, nil, err)
+	assert.Equal(t, "OK", resp.Output)
 }
 
 func TestOKLoop(t *testing.T) {
@@ -132,8 +133,8 @@ func TestOKLoop(t *testing.T) {
 		var resp TestAResponse
 		err = client.Call(ctx, d.GetTestA, &TestARequest{Input: "OK"}, &resp)
 
-		assert.NotEqual(t, nil, err)
-		assert.Equal(t, "OK", err.Error())
+		assert.Equal(t, nil, err)
+		assert.Equal(t, "OK", resp.Output)
 		if i%10000 == 0 {
 			log.Println(i)
 		}
