@@ -28,6 +28,10 @@ type TestService struct {
 	Fixtures Fixtures
 }
 
+func (b *TestService) BusNameSpace() string {
+	return "TestService"
+}
+
 func (b *TestService) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
 	if req.Input == "123456" {
 		return nil, errors.New("test-error-1")
@@ -117,7 +121,7 @@ func TestOKLoop(t *testing.T) {
 
 	bus2, err := NewBus(ctx, ServiceConfiguration{URL: natsURL, ID: "bus2"})
 	assert.Equal(t, nil, err)
-	defer bus.Close()
+	defer bus2.Close()
 	bus2.BindService(d)
 
 	var client *Bus

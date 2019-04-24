@@ -25,6 +25,7 @@ import (
 )
 
 type BusInterface interface {
+	BusNameSpace() string
 }
 
 type ServiceConfiguration struct {
@@ -40,9 +41,11 @@ type Bus struct {
 	serviceType    reflect.Type
 	serviceMap     map[string]reflect.Method
 	serviceNameMap map[string]string
+	NameSpace      string
 }
 
 func NewBus(ctx context.Context, config ServiceConfiguration) (*Bus, error) {
+
 	k := string("BusID")
 
 	busID := config.ID
@@ -63,6 +66,7 @@ func NewBus(ctx context.Context, config ServiceConfiguration) (*Bus, error) {
 }
 
 func (bus *Bus) BindService(service BusInterface) {
+	bus.NameSpace = service.BusNameSpace()
 	bus.Service = service
 	v := reflect.ValueOf(service)
 
@@ -71,16 +75,19 @@ func (bus *Bus) BindService(service BusInterface) {
 		method := v.Type().Method(i)
 		valid := method.Func.IsNil() == false &&
 			method.Func.IsValid() == true &&
-			method.Type.NumIn() == 3
+			method.Type.NumIn() == 3 &&
+			method.Type.NumOut() == 2
 
 		if valid {
-			bus.subscribe(method.Name)
-			bus.serviceMap[method.Name] = method
+			id := bus.NameSpace + "/" + method.Name
+			bus.subscribe(id)
+			bus.serviceMap[id] = method
 		}
 	}
 }
 
 func (bus *Bus) BindClient(service BusInterface) {
+	bus.NameSpace = service.BusNameSpace()
 	bus.Service = service
 	v := reflect.ValueOf(service)
 
@@ -89,14 +96,12 @@ func (bus *Bus) BindClient(service BusInterface) {
 		method := v.Type().Method(i)
 		valid := method.Func.IsNil() == false &&
 			method.Func.IsValid() == true &&
-			method.Type.NumIn() == 3
+			method.Type.NumIn() == 3 &&
+			method.Type.NumOut() == 2
 
 		if valid {
-			id := ""
-			for j := 1; j < 2; j++ {
-				id = id + method.Type.In(j).String()
-			}
-			bus.serviceNameMap[id] = method.Name
+			id := method.Type.In(1).String() + method.Type.In(2).String()
+			bus.serviceNameMap[id] = bus.NameSpace + "/" + method.Name
 		}
 	}
 }
@@ -136,14 +141,19 @@ func (bus *Bus) subscribe(subject string) error {
 			return
 		}
 
-		method := bus.serviceMap[subject]
+		method, ok := bus.serviceMap[subject]
+		if ok == false {
+			// method not found
+			return
+		}
+
 		args := make([]reflect.Value, 3)
 		args[0] = reflect.ValueOf(bus.Service)
 		args[1] = reflect.ValueOf(bus.Context)
 
 		data := reflect.New(method.Type.In(2).Elem())
-		err := proto.Unmarshal(m.Data, data.Interface().(proto.Message))
 
+		err := proto.Unmarshal(m.Data, data.Interface().(proto.Message))
 		if err != nil {
 			bus.HandleError(m.Reply, err)
 			return
@@ -151,31 +161,27 @@ func (bus *Bus) subscribe(subject string) error {
 		args[2] = data
 		result := method.Func.Call(args)
 
-		if m.Reply != "" {
-			if len(result) == 2 {
-				if result[1].IsNil() == false {
-					err := result[1].Interface().(error)
+		if m.Reply != "" &&
+			len(result) == 2 {
+			if result[1].IsNil() == false {
+				err := result[1].Interface().(error)
 
+				bus.HandleError(m.Reply, err)
+			} else {
+				data := result[0].Interface().(proto.Message)
+				raw, err := proto.Marshal(data)
+				if err != nil {
 					bus.HandleError(m.Reply, err)
 				} else {
-					data := result[0].Interface().(proto.Message)
-					raw, err := proto.Marshal(data)
-					if err != nil {
-						bus.HandleError(m.Reply, err)
-					} else {
-						zero := []byte{0}
-						bus.Connection.Publish(m.Reply, append(zero, raw...))
-					}
+					zero := []byte{0}
+					bus.Connection.Publish(m.Reply, append(zero, raw...))
 				}
 			}
 		}
+
 	})
 
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
 
 func (bus *Bus) Close() {
@@ -185,7 +191,6 @@ func (bus *Bus) Close() {
 }
 
 func (bus *Bus) Call(ctx context.Context, fn interface{}, req proto.Message, resp interface{}) error {
-
 	t := reflect.ValueOf(fn).Type()
 	valid := t.NumIn() == 2 && t.NumOut() == 2 && bus.Service != nil
 
@@ -193,10 +198,7 @@ func (bus *Bus) Call(ctx context.Context, fn interface{}, req proto.Message, res
 		return errors.New("invalid-function")
 	}
 
-	id := ""
-	for i := 0; i < 1; i++ {
-		id = id + t.In(i).String()
-	}
+	id := t.In(0).String() + t.In(1).String()
 	functionName, ok := bus.serviceNameMap[id]
 
 	if ok == false {
@@ -211,6 +213,7 @@ func (bus *Bus) Call(ctx context.Context, fn interface{}, req proto.Message, res
 	}
 
 	if result.Data[0] == 0 {
+		// 0 means no error
 		p, ok := resp.(proto.Message)
 		if ok == false {
 			return errors.New("invalid-response-type")
@@ -219,7 +222,6 @@ func (bus *Bus) Call(ctx context.Context, fn interface{}, req proto.Message, res
 	} else {
 		var pErr ErrorMessage
 		err = proto.Unmarshal(result.Data[1:], &pErr)
-
 		if err == nil {
 			return errors.New(pErr.ErrorMessage)
 		}

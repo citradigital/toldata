@@ -29,6 +29,9 @@ test:
 buildtest: 
 	docker-compose -f ${RECIPE} -p ${NAMESPACE} build testapi
 
+infratest:
+	docker-compose -f ${RECIPE} -p ${NAMESPACE} up -d testnats
+
 cleantest:
 	docker-compose -f ${RECIPE} -p ${NAMESPACE} stop 
 	docker-compose -f ${RECIPE} -p ${NAMESPACE} rm -f testapi
