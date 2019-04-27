@@ -15,7 +15,6 @@ package protonats
 
 import (
 	"context"
-	"errors"
 	"reflect"
 	"time"
 
@@ -82,26 +81,6 @@ func (bus *Bus) BindService(service BusInterface) {
 			id := bus.NameSpace + "/" + method.Name
 			bus.subscribe(id)
 			bus.serviceMap[id] = method
-		}
-	}
-}
-
-func (bus *Bus) BindClient(service BusInterface) {
-	bus.NameSpace = service.BusNameSpace()
-	bus.Service = service
-	v := reflect.ValueOf(service)
-
-	bus.serviceNameMap = make(map[string]string)
-	for i := 0; i < v.NumMethod(); i++ {
-		method := v.Type().Method(i)
-		valid := method.Func.IsNil() == false &&
-			method.Func.IsValid() == true &&
-			method.Type.NumIn() == 3 &&
-			method.Type.NumOut() == 2
-
-		if valid {
-			id := method.Type.In(1).String() + method.Type.In(2).String()
-			bus.serviceNameMap[id] = bus.NameSpace + "/" + method.Name
 		}
 	}
 }
@@ -188,45 +167,4 @@ func (bus *Bus) Close() {
 	if bus.Connection != nil {
 		bus.Connection.Close()
 	}
-}
-
-func (bus *Bus) Call(ctx context.Context, fn interface{}, req proto.Message, resp interface{}) error {
-	t := reflect.ValueOf(fn).Type()
-	valid := t.NumIn() == 2 && t.NumOut() == 2 && bus.Service != nil
-
-	if valid == false {
-		return errors.New("invalid-function")
-	}
-
-	id := t.In(0).String() + t.In(1).String()
-	functionName, ok := bus.serviceNameMap[id]
-
-	if ok == false {
-		return errors.New("function-not-found")
-	}
-
-	reqRaw, err := proto.Marshal(req)
-
-	result, err := bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
-	if err != nil {
-		return err
-	}
-
-	if result.Data[0] == 0 {
-		// 0 means no error
-		p, ok := resp.(proto.Message)
-		if ok == false {
-			return errors.New("invalid-response-type")
-		}
-		err = proto.Unmarshal(result.Data[1:], p)
-	} else {
-		var pErr ErrorMessage
-		err = proto.Unmarshal(result.Data[1:], &pErr)
-		if err == nil {
-			return errors.New(pErr.ErrorMessage)
-		}
-	}
-
-	return err
-
 }

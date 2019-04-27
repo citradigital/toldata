@@ -22,7 +22,6 @@ import (
 	"time"
 
 	"github.com/citradigital/protonats"
-
 	"github.com/stretchr/testify/assert"
 )
 
@@ -78,9 +77,6 @@ func TestError1(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
-	client.BindClient(d)
-	log.Println("Omama")
-
 	svc := NewTestServiceClient(client)
 	_, err = svc.GetTestA(ctx, &TestARequest{Input: "123456"})
 
@@ -102,7 +98,6 @@ func TestOK1(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
-	client.BindClient(d)
 
 	svc := NewTestServiceClient(client)
 	resp, err := svc.GetTestA(ctx, &TestARequest{Input: "OK"})
@@ -131,7 +126,6 @@ func TestOKLoop(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
-	client.BindClient(d)
 
 	t1 := time.Now()
 	max := 100000
