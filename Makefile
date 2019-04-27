@@ -24,7 +24,7 @@ export $IMAGE_TAG
 .PHONY : test
 
 test: 
-	MIGRATION_PATH=${MIGRATION_PATH} go test
+	MIGRATION_PATH=${MIGRATION_PATH} cd test && go test
 
 buildtest: 
 	docker-compose -f ${RECIPE} -p ${NAMESPACE} build testapi
@@ -46,5 +46,14 @@ gen_clean:
 	rm -f *.pb.go
 
 gen: 
-	docker run -v `pwd`:/gen -v `pwd`/api:/api znly/protoc -I /api/ /api/nats.proto --gogofast_out=/gen
-	docker run -v `pwd`:/gen -v `pwd`/api:/api znly/protoc -I /api/ /api/nats_test.proto --gogofast_out=/gen
+	docker run -v `pwd`:/gen -v `pwd`/api:/api citradigital/protonats -I /api/ /api/nats.proto --gogofast_out=/gen
+	docker run -v `pwd`/test:/gen -v `pwd`/api:/api citradigital/protonats -I /api/ /api/nats_test.proto --protonats_out=/gen --gogofast_out=/gen
+
+generator:
+	go build -o protonats-gen cmd/protonats-gen/main.go
+
+build-generator:
+	mkdir -p tmp
+	cp -a cmd/protonats-gen tmp
+	docker run -v `pwd`/deployments/docker/build:/build -v `pwd`/tmp/protonats-gen:/src -v `pwd`/deployments/docker/build-generator/build.sh:/build.sh golang:1.12-alpine /build.sh
+	docker build -t citradigital/protonats -f deployments/docker/build-generator/Dockerfile deployments/docker/

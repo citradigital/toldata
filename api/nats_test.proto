@@ -14,7 +14,7 @@
 syntax = "proto3";
 
 package cdl.protonats;
-option go_package = "protonats";
+option go_package = "test";
 
 message TestARequest {
     string input = 1; 

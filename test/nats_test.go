@@ -11,7 +11,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package protonats
+package test
 
 import (
 	"context"
@@ -20,6 +20,8 @@ import (
 	"os"
 	"testing"
 	"time"
+
+	"github.com/citradigital/protonats"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -67,20 +69,20 @@ func TestError1(t *testing.T) {
 	d := createTestService()
 
 	ctx := context.Background()
-	bus, err := NewBus(ctx, ServiceConfiguration{URL: natsURL})
+	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 	defer bus.Close()
 	bus.BindService(d)
 
-	var client *Bus
-	client, err = NewBus(ctx, ServiceConfiguration{URL: natsURL})
+	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
 	client.BindClient(d)
+	log.Println("Omama")
 
-	var resp TestAResponse
-	err = client.Call(ctx, d.GetTestA, &TestARequest{Input: "123456"}, &resp)
+	svc := NewTestServiceClient(client)
+	_, err = svc.GetTestA(ctx, &TestARequest{Input: "123456"})
 
 	assert.NotEqual(t, nil, err)
 	assert.Equal(t, "test-error-1", err.Error())
@@ -90,20 +92,20 @@ func TestOK1(t *testing.T) {
 	d := createTestService()
 
 	ctx := context.Background()
-	bus, err := NewBus(ctx, ServiceConfiguration{URL: natsURL})
+	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 	defer bus.Close()
 	bus.BindService(d)
 
-	var client *Bus
-	client, err = NewBus(ctx, ServiceConfiguration{URL: natsURL})
+	var client *protonats.Bus
+	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
 	client.BindClient(d)
 
-	var resp TestAResponse
-	err = client.Call(ctx, d.GetTestA, &TestARequest{Input: "OK"}, &resp)
+	svc := NewTestServiceClient(client)
+	resp, err := svc.GetTestA(ctx, &TestARequest{Input: "OK"})
 
 	log.Println(err)
 	assert.Equal(t, nil, err)
@@ -114,18 +116,18 @@ func TestOKLoop(t *testing.T) {
 	d := createTestService()
 
 	ctx := context.Background()
-	bus, err := NewBus(ctx, ServiceConfiguration{URL: natsURL, ID: "bus1"})
+	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL, ID: "bus1"})
 	assert.Equal(t, nil, err)
 	defer bus.Close()
 	bus.BindService(d)
 
-	bus2, err := NewBus(ctx, ServiceConfiguration{URL: natsURL, ID: "bus2"})
+	bus2, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL, ID: "bus2"})
 	assert.Equal(t, nil, err)
 	defer bus2.Close()
 	bus2.BindService(d)
 
-	var client *Bus
-	client, err = NewBus(ctx, ServiceConfiguration{URL: natsURL})
+	var client *protonats.Bus
+	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
@@ -133,9 +135,10 @@ func TestOKLoop(t *testing.T) {
 
 	t1 := time.Now()
 	max := 100000
+	svc := NewTestServiceClient(client)
+
 	for i := 0; i < max; i++ {
-		var resp TestAResponse
-		err = client.Call(ctx, d.GetTestA, &TestARequest{Input: "OK"}, &resp)
+		resp, err := svc.GetTestA(ctx, &TestARequest{Input: "OK"})
 
 		assert.Equal(t, nil, err)
 		assert.Equal(t, "OK", resp.Output)
