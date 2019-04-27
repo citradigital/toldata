@@ -50,15 +50,17 @@ Server side:
 ```
 
 Client side:
+
+Generate the code from the proto file with `--protonats_out=` argument to protoc-gogo, then:
+
 ```
     var client *Bus
 	client, err = NewBus(ctx, ServiceConfiguration{URL: natsURL})
 	
 	defer client.Close()
-	client.BindClient(d)
 
-	var resp TestAResponse
-	err = client.Call(ctx, d.GetTestA, &TestARequest{Input: "OK"}, &resp)
+	svc := NewTestServiceClient(client)
+	resp, err := svc.GetTestA(ctx, &TestARequest{Input: "OK"})
 
 ```
 
