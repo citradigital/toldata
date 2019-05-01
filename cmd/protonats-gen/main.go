@@ -39,17 +39,38 @@ import (
 	"errors"
 	"github.com/gogo/protobuf/proto"
 	"github.com/citradigital/protonats"
+	nats "github.com/nats-io/go-nats"
 )
+
+{{ range .Services }}{{ $ServiceName := .Name }}
+type {{ .Name }}Interface interface {
+	BusNameSpace() string
+	{{ range .Method }}
+	{{ .Name }}(ctx context.Context, req *{{ .InputType | stripPackage }}) (*{{ .OutputType | stripPackage }}, error)
+{{ end }}
+}
+{{ end }}
 
 {{ range .Services }}{{ $ServiceName := .Name }}
 type {{ $ServiceName }}Client struct {
 	Bus *protonats.Bus
 }
 
+type {{ $ServiceName }}Server struct {
+	Bus *protonats.Bus
+	Service {{ $ServiceName }}Interface
+}
+
 func New{{ $ServiceName }}Client(bus *protonats.Bus) * {{$ServiceName}}Client {
 	s := &{{ $ServiceName }}Client{ Bus: bus }
 	return s
 }
+
+func New{{ $ServiceName }}Server(bus *protonats.Bus, service {{ $ServiceName }}Interface) * {{$ServiceName}}Server {
+	s := &{{ $ServiceName }}Server{ Bus: bus, Service: service }
+	return s
+}
+
 
 {{ range .Method }}	
 func (service *{{ $ServiceName }}Client) {{ .Name }}(ctx context.Context, req *{{ .InputType | stripPackage }}) (*{{ .OutputType | stripPackage }}, error) {
@@ -80,7 +101,49 @@ func (service *{{ $ServiceName }}Client) {{ .Name }}(ctx context.Context, req *{
 		}
 	}
 }
+
+
 {{ end }}
+{{ end }}
+
+{{ range .Services }}{{ $ServiceName := .Name }}
+
+func (service *{{ $ServiceName }}Server) Subscribe{{ .Name }}() error {
+	bus := service.Bus
+	
+	{{ range .Method }}	
+
+	_, err := bus.Connection.QueueSubscribe("{{ $ServiceName }}/{{ .Name }}", "{{ $ServiceName }}", func(m *nats.Msg) {
+		var input {{ .InputType | stripPackage }}
+		err := proto.Unmarshal(m.Data, &input)
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+			return
+		}
+		result, err := service.Service.{{ .Name }}(bus.Context, &input)
+
+		if m.Reply != ""  {
+			if err != nil {
+				bus.HandleError(m.Reply, err)
+			} else {
+				raw, err := proto.Marshal(result)
+				if err != nil {
+					bus.HandleError(m.Reply, err)
+				} else {
+					zero := []byte{0}
+					bus.Connection.Publish(m.Reply, append(zero, raw...))
+				}
+			}
+		}
+
+	})
+
+	{{ end }}
+
+	return err
+}
+
+
 {{ end }}`
 )
 

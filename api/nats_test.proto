@@ -18,10 +18,12 @@ option go_package = "test";
 
 message TestARequest {
     string input = 1; 
+    int64 id = 2;
 }
 
 message TestAResponse {
     string output = 1;
+    int64 id = 2;
 }
 
 service TestService {

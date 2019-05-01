@@ -45,6 +45,7 @@ func (b *TestService) GetTestA(ctx context.Context, req *TestARequest) (*TestARe
 	}
 	result := &TestAResponse{
 		Output: "OK",
+		Id:     req.Id,
 	}
 	return result, nil
 }
@@ -71,7 +72,10 @@ func TestError1(t *testing.T) {
 	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 	defer bus.Close()
-	bus.BindService(d)
+
+	svr := NewTestServiceServer(bus, d)
+	err = svr.SubscribeTestService()
+	assert.Equal(t, nil, err)
 
 	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
@@ -91,7 +95,9 @@ func TestOK1(t *testing.T) {
 	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 	defer bus.Close()
-	bus.BindService(d)
+	svr := NewTestServiceServer(bus, d)
+	err = svr.SubscribeTestService()
+	assert.Equal(t, nil, err)
 
 	var client *protonats.Bus
 	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
@@ -114,12 +120,16 @@ func TestOKLoop(t *testing.T) {
 	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL, ID: "bus1"})
 	assert.Equal(t, nil, err)
 	defer bus.Close()
-	bus.BindService(d)
+	svr := NewTestServiceServer(bus, d)
+	err = svr.SubscribeTestService()
+	assert.Equal(t, nil, err)
 
 	bus2, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL, ID: "bus2"})
 	assert.Equal(t, nil, err)
 	defer bus2.Close()
-	bus2.BindService(d)
+	svr2 := NewTestServiceServer(bus2, d)
+	err = svr2.SubscribeTestService()
+	assert.Equal(t, nil, err)
 
 	var client *protonats.Bus
 	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
@@ -127,15 +137,19 @@ func TestOKLoop(t *testing.T) {
 
 	defer client.Close()
 
-	t1 := time.Now()
 	max := 100000
 	svc := NewTestServiceClient(client)
 
+	t1 := time.Now()
 	for i := 0; i < max; i++ {
-		resp, err := svc.GetTestA(ctx, &TestARequest{Input: "OK"})
+		resp, err := svc.GetTestA(ctx, &TestARequest{Input: "OK", Id: int64(i)})
 
-		assert.Equal(t, nil, err)
-		assert.Equal(t, "OK", resp.Output)
+		if err != nil {
+			t.Fail()
+		}
+		if resp.Output != "OK" {
+			t.Fail()
+		}
 		if i%10000 == 0 {
 			log.Println(i)
 		}

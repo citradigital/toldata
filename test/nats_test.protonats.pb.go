@@ -6,17 +6,38 @@ import (
 	"errors"
 	"github.com/gogo/protobuf/proto"
 	"github.com/citradigital/protonats"
+	nats "github.com/nats-io/go-nats"
 )
+
+
+type TestServiceInterface interface {
+	BusNameSpace() string
+	
+	GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error)
+
+}
+
 
 
 type TestServiceClient struct {
 	Bus *protonats.Bus
 }
 
+type TestServiceServer struct {
+	Bus *protonats.Bus
+	Service TestServiceInterface
+}
+
 func NewTestServiceClient(bus *protonats.Bus) * TestServiceClient {
 	s := &TestServiceClient{ Bus: bus }
 	return s
 }
+
+func NewTestServiceServer(bus *protonats.Bus, service TestServiceInterface) * TestServiceServer {
+	s := &TestServiceServer{ Bus: bus, Service: service }
+	return s
+}
+
 
 	
 func (service *TestServiceClient) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
@@ -47,4 +68,46 @@ func (service *TestServiceClient) GetTestA(ctx context.Context, req *TestAReques
 		}
 	}
 }
+
+
+
+
+
+
+
+func (service *TestServiceServer) SubscribeTestService() error {
+	bus := service.Bus
+	
+		
+
+	_, err := bus.Connection.QueueSubscribe("TestService/GetTestA", "TestService", func(m *nats.Msg) {
+		var input TestARequest
+		err := proto.Unmarshal(m.Data, &input)
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+			return
+		}
+		result, err := service.Service.GetTestA(bus.Context, &input)
+
+		if m.Reply != ""  {
+			if err != nil {
+				bus.HandleError(m.Reply, err)
+			} else {
+				raw, err := proto.Marshal(result)
+				if err != nil {
+					bus.HandleError(m.Reply, err)
+				} else {
+					zero := []byte{0}
+					bus.Connection.Publish(m.Reply, append(zero, raw...))
+				}
+			}
+		}
+
+	})
+
+	
+
+	return err
+}
+
 
