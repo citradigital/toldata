@@ -26,7 +26,7 @@ Implementation:
 ```
 func (b *TestService) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
 	...
-    some business
+    //some business
     ...
     if err != nil {
 		return nil, err
@@ -40,18 +40,22 @@ func (b *TestService) GetTestA(ctx context.Context, req *TestARequest) (*TestARe
 ```
 
 Server side:
+
+Generate the server code from the proto file with `--protonats_out=` argument to protoc-gogo, then:
+
 ```
     service := &TestService{}
     ...
 	ctx := context.Background()
 	bus, err := NewBus(ctx, ServiceConfiguration{URL: natsURL, ID: "bus1"})
 	defer bus.Close()
-	bus.BindService(service)
+	svr := NewTestServiceServer(bus, d)
+	err = svr.SubscribeTestService()
 ```
 
 Client side:
 
-Generate the code from the proto file with `--protonats_out=` argument to protoc-gogo, then:
+Generate the client code from the proto file with `--protonats_out=` argument to protoc-gogo, then:
 
 ```
     var client *Bus

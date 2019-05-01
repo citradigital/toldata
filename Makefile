@@ -46,8 +46,8 @@ gen_clean:
 	rm -f *.pb.go
 
 gen: 
-	docker run -v `pwd`:/gen -v `pwd`/api:/api citradigital/protonats -I /api/ /api/nats.proto --gogofast_out=/gen
-	docker run -v `pwd`/test:/gen -v `pwd`/api:/api citradigital/protonats -I /api/ /api/nats_test.proto --protonats_out=/gen --gogofast_out=/gen
+	docker run -v `pwd`:/gen -v `pwd`/api:/api citradigital/protonats -I /api/ /api/nats.proto --gogofaster_out=/gen
+	docker run -v `pwd`/test:/gen -v `pwd`/api:/api citradigital/protonats -I /api/ /api/nats_test.proto --protonats_out=/gen --gogofaster_out=/gen
 
 generator:
 	go build -o protonats-gen cmd/protonats-gen/main.go

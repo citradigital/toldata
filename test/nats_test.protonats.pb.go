@@ -11,8 +11,6 @@ import (
 
 
 type TestServiceInterface interface {
-	BusNameSpace() string
-	
 	GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error)
 
 }

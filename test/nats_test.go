@@ -29,10 +29,6 @@ type TestService struct {
 	Fixtures Fixtures
 }
 
-func (b *TestService) BusNameSpace() string {
-	return "TestService"
-}
-
 func (b *TestService) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
 	if req.Input == "123456" {
 		return nil, errors.New("test-error-1")

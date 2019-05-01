@@ -44,9 +44,7 @@ import (
 
 {{ range .Services }}{{ $ServiceName := .Name }}
 type {{ .Name }}Interface interface {
-	BusNameSpace() string
-	{{ range .Method }}
-	{{ .Name }}(ctx context.Context, req *{{ .InputType | stripPackage }}) (*{{ .OutputType | stripPackage }}, error)
+	{{ range .Method }}{{ .Name }}(ctx context.Context, req *{{ .InputType | stripPackage }}) (*{{ .OutputType | stripPackage }}, error)
 {{ end }}
 }
 {{ end }}
