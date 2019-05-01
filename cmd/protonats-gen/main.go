@@ -83,7 +83,7 @@ func (service *{{ $ServiceName }}Client) {{ .Name }}(ctx context.Context, req *{
 
 	if result.Data[0] == 0 {
 		// 0 means no error
-		p := &TestAResponse{}
+		p := &{{ .OutputType | stripPackage }}{}
 		err = proto.Unmarshal(result.Data[1:], p)
 		if err != nil {
 			return nil, err
