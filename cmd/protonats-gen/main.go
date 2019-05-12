@@ -109,9 +109,10 @@ func (service *{{ $ServiceName }}Client) {{ .Name }}(ctx context.Context, req *{
 func (service *{{ $ServiceName }}Server) Subscribe{{ .Name }}() error {
 	bus := service.Bus
 	
+	var error errors
 	{{ range .Method }}	
 
-	_, err := bus.Connection.QueueSubscribe("{{ $ServiceName }}/{{ .Name }}", "{{ $ServiceName }}", func(m *nats.Msg) {
+	_, err = bus.Connection.QueueSubscribe("{{ $ServiceName }}/{{ .Name }}", "{{ $ServiceName }}", func(m *nats.Msg) {
 		var input {{ .InputType | stripPackage }}
 		err := proto.Unmarshal(m.Data, &input)
 		if err != nil {
