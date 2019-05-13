@@ -36,7 +36,6 @@ const (
 package {{ .PackageName }}
 import (
 	"context"
-	"errors"
 	"github.com/gogo/protobuf/proto"
 	"github.com/citradigital/protonats"
 	nats "github.com/nats-io/go-nats"
@@ -109,7 +108,7 @@ func (service *{{ $ServiceName }}Client) {{ .Name }}(ctx context.Context, req *{
 func (service *{{ $ServiceName }}Server) Subscribe{{ .Name }}() error {
 	bus := service.Bus
 	
-	var error errors
+	var err error
 	{{ range .Method }}	
 
 	_, err = bus.Connection.QueueSubscribe("{{ $ServiceName }}/{{ .Name }}", "{{ $ServiceName }}", func(m *nats.Msg) {
