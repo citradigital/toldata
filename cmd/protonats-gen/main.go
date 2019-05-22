@@ -36,6 +36,7 @@ const (
 package {{ .PackageName }}
 import (
 	"context"
+	"errors"
 	"github.com/gogo/protobuf/proto"
 	"github.com/citradigital/protonats"
 	nats "github.com/nats-io/go-nats"
@@ -105,13 +106,18 @@ func (service *{{ $ServiceName }}Client) {{ .Name }}(ctx context.Context, req *{
 
 {{ range .Services }}{{ $ServiceName := .Name }}
 
-func (service *{{ $ServiceName }}Server) Subscribe{{ .Name }}() error {
+func (service *{{ $ServiceName }}Server) Subscribe{{ .Name }}() (<-chan struct{}, error) {
 	bus := service.Bus
 	
 	var err error
+	var sub *nats.Subscription
+	var subscriptions []*nats.Subscription
+	
+	done := make(chan struct{})
+	
 	{{ range .Method }}	
 
-	_, err = bus.Connection.QueueSubscribe("{{ $ServiceName }}/{{ .Name }}", "{{ $ServiceName }}", func(m *nats.Msg) {
+	sub, err = bus.Connection.QueueSubscribe("{{ $ServiceName }}/{{ .Name }}", "{{ $ServiceName }}", func(m *nats.Msg) {
 		var input {{ .InputType | stripPackage }}
 		err := proto.Unmarshal(m.Data, &input)
 		if err != nil {
@@ -136,9 +142,23 @@ func (service *{{ $ServiceName }}Server) Subscribe{{ .Name }}() error {
 
 	})
 
+	subscriptions = append(subscriptions, sub)
+
 	{{ end }}
 
-	return err
+
+	go func() {
+		defer close(done)
+
+		select {
+		case <-bus.Context.Done():
+			for i := range subscriptions {
+				subscriptions[i].Unsubscribe()
+			}
+		}
+	}()
+
+	return done, err
 }
 
 

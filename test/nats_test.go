@@ -70,7 +70,7 @@ func TestError1(t *testing.T) {
 	defer bus.Close()
 
 	svr := NewTestServiceServer(bus, d)
-	err = svr.SubscribeTestService()
+	_, err = svr.SubscribeTestService()
 	assert.Equal(t, nil, err)
 
 	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
@@ -87,12 +87,12 @@ func TestError1(t *testing.T) {
 func TestOK1(t *testing.T) {
 	d := createTestService()
 
-	ctx := context.Background()
+	ctx, cancel := context.WithCancel(context.Background())
 	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 	defer bus.Close()
 	svr := NewTestServiceServer(bus, d)
-	err = svr.SubscribeTestService()
+	done, err := svr.SubscribeTestService()
 	assert.Equal(t, nil, err)
 
 	var client *protonats.Bus
@@ -107,6 +107,9 @@ func TestOK1(t *testing.T) {
 	log.Println(err)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, "OK", resp.Output)
+
+	cancel()
+	<-done
 }
 
 func TestOKLoop(t *testing.T) {
@@ -117,14 +120,14 @@ func TestOKLoop(t *testing.T) {
 	assert.Equal(t, nil, err)
 	defer bus.Close()
 	svr := NewTestServiceServer(bus, d)
-	err = svr.SubscribeTestService()
+	_, err = svr.SubscribeTestService()
 	assert.Equal(t, nil, err)
 
 	bus2, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL, ID: "bus2"})
 	assert.Equal(t, nil, err)
 	defer bus2.Close()
 	svr2 := NewTestServiceServer(bus2, d)
-	err = svr2.SubscribeTestService()
+	_, err = svr2.SubscribeTestService()
 	assert.Equal(t, nil, err)
 
 	var client *protonats.Bus

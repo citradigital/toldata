@@ -73,12 +73,18 @@ func (service *TestServiceClient) GetTestA(ctx context.Context, req *TestAReques
 
 
 
-func (service *TestServiceServer) SubscribeTestService() error {
+func (service *TestServiceServer) SubscribeTestService() (<-chan struct{}, error) {
 	bus := service.Bus
+	
+	var err error
+	var sub *nats.Subscription
+	var subscriptions []*nats.Subscription
+	
+	done := make(chan struct{})
 	
 		
 
-	_, err := bus.Connection.QueueSubscribe("TestService/GetTestA", "TestService", func(m *nats.Msg) {
+	sub, err = bus.Connection.QueueSubscribe("TestService/GetTestA", "TestService", func(m *nats.Msg) {
 		var input TestARequest
 		err := proto.Unmarshal(m.Data, &input)
 		if err != nil {
@@ -103,9 +109,23 @@ func (service *TestServiceServer) SubscribeTestService() error {
 
 	})
 
+	subscriptions = append(subscriptions, sub)
+
 	
 
-	return err
+
+	go func() {
+		defer close(done)
+
+		select {
+		case <-bus.Context.Done():
+			for i := range subscriptions {
+				subscriptions[i].Unsubscribe()
+			}
+		}
+	}()
+
+	return done, err
 }
 
 

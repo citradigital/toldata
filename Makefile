@@ -55,5 +55,5 @@ generator:
 build-generator:
 	mkdir -p tmp
 	cp -a cmd/protonats-gen tmp
-	docker run -v `pwd`/deployments/docker/build:/build -v `pwd`/tmp/protonats-gen:/src -v `pwd`/deployments/docker/build-generator/build.sh:/build.sh golang:1.12-alpine /build.sh
+	docker run -v `pwd`/cache/go:/go/pkg/mod -v `pwd`/cache:/cache -v `pwd`/deployments/docker/build:/build -v `pwd`/tmp/protonats-gen:/src -v `pwd`/deployments/docker/build-generator/build.sh:/build.sh golang:1.12-alpine /build.sh
 	docker build -t citradigital/protonats -f deployments/docker/build-generator/Dockerfile deployments/docker/
