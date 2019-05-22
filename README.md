@@ -46,11 +46,16 @@ Generate the server code from the proto file with `--protonats_out=` argument to
 ```
     service := &TestService{}
     ...
-	ctx := context.Background()
+    ctx, cancel := context.WithCancel(context.Background())
 	bus, err := NewBus(ctx, ServiceConfiguration{URL: natsURL, ID: "bus1"})
 	defer bus.Close()
 	svr := NewTestServiceServer(bus, d)
-	err = svr.SubscribeTestService()
+	chan, err = svr.SubscribeTestService()
+
+    ...
+	cancel() // cancel services
+	...
+	<-chan  // wait and unsubscribe 
 ```
 
 Client side:
