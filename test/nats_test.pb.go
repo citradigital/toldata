@@ -17,6 +17,11 @@ import proto "github.com/gogo/protobuf/proto"
 import fmt "fmt"
 import math "math"
 
+import (
+	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
+)
+
 import io "io"
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -82,6 +87,79 @@ func init() {
 	proto.RegisterType((*TestARequest)(nil), "cdl.protonats.TestARequest")
 	proto.RegisterType((*TestAResponse)(nil), "cdl.protonats.TestAResponse")
 }
+
+// Reference imports to suppress errors if they are not otherwise used.
+var _ context.Context
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
+
+// Client API for TestService service
+
+type TestServiceClient interface {
+	GetTestA(ctx context.Context, in *TestARequest, opts ...grpc.CallOption) (*TestAResponse, error)
+}
+
+type testServiceClient struct {
+	cc *grpc.ClientConn
+}
+
+func NewTestServiceClient(cc *grpc.ClientConn) TestServiceClient {
+	return &testServiceClient{cc}
+}
+
+func (c *testServiceClient) GetTestA(ctx context.Context, in *TestARequest, opts ...grpc.CallOption) (*TestAResponse, error) {
+	out := new(TestAResponse)
+	err := grpc.Invoke(ctx, "/cdl.protonats.TestService/GetTestA", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// Server API for TestService service
+
+type TestServiceServer interface {
+	GetTestA(context.Context, *TestARequest) (*TestAResponse, error)
+}
+
+func RegisterTestServiceServer(s *grpc.Server, srv TestServiceServer) {
+	s.RegisterService(&_TestService_serviceDesc, srv)
+}
+
+func _TestService_GetTestA_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TestARequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TestServiceServer).GetTestA(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/cdl.protonats.TestService/GetTestA",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TestServiceServer).GetTestA(ctx, req.(*TestARequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+var _TestService_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "cdl.protonats.TestService",
+	HandlerType: (*TestServiceServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "GetTestA",
+			Handler:    _TestService_GetTestA_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "nats_test.proto",
+}
+
 func (m *TestARequest) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
