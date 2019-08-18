@@ -15,6 +15,16 @@ DIR=deployments/docker
 RECIPE=${DIR}/docker-compose.yaml
 NAMESPACE=builder
 
+DIND_PREFIX ?= $(HOME)
+ifneq ($(HOST_PATH),)
+DIND_PREFIX := $(HOST_PATH)
+endif
+ifeq ($(CACHE_PREFIX),)
+	CACHE_PREFIX=/tmp
+endif
+
+PREFIX=$(shell echo $(PWD) | sed -e s:$(HOME):$(DIND_PREFIX):)
+
 include .env
 export $(shell sed 's/=.*//' .env)
 
@@ -46,8 +56,8 @@ gen_clean:
 	rm -f *.pb.go
 
 gen: 
-	docker run -v `pwd`:/gen -v `pwd`/api:/api citradigital/protonats -I /api/ /api/nats.proto --gogofaster_out=/gen
-	docker run -v `pwd`/test:/gen -v `pwd`/api:/api citradigital/protonats -I /api/ /api/nats_test.proto --protonats_out=/gen --gogofaster_out=/gen
+	docker run -v $(PREFIX):/gen -v $(PREFIX)/api:/api citradigital/protonats -I /api/ /api/nats.proto --gogofaster_out=/gen
+	docker run -v $(PREFIX)/test:/gen -v $(PREFIX)/api:/api citradigital/protonats -I /api/ /api/nats_test.proto --protonats_out=/gen --gogofaster_out=/gen
 
 generator:
 	go build -o protonats-gen cmd/protonats-gen/main.go
@@ -55,5 +65,10 @@ generator:
 build-generator:
 	mkdir -p tmp
 	cp -a cmd/protonats-gen tmp
-	docker run -v `pwd`/cache/go:/go/pkg/mod -v `pwd`/cache:/cache -v `pwd`/deployments/docker/build:/build -v `pwd`/tmp/protonats-gen:/src -v `pwd`/deployments/docker/build-generator/build.sh:/build.sh golang:1.12-alpine /build.sh
+	docker run -v $(CACHE_PREFIX)/cache/go:/go/pkg/mod \
+		-v $(CACHE_PREFIX)/cache/apk:/etc/apk/cache \
+		-v $(PREFIX)/deployments/docker/build:/build \
+		-v $(PREFIX)/tmp/protonats-gen:/src \
+		-v $(PREFIX)/deployments/docker/build-generator/build.sh:/build.sh \
+		golang:1.12-alpine /build.sh
 	docker build -t citradigital/protonats -f deployments/docker/build-generator/Dockerfile deployments/docker/
