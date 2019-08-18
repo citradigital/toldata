@@ -12,7 +12,7 @@ import (
 
 
 
-type TestServiceInterface interface {
+type TestServiceProtonatsInterface interface {
 	GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error)
 
 }
@@ -25,7 +25,7 @@ type TestServiceProtonatsClient struct {
 
 type TestServiceProtonatsServer struct {
 	Bus *protonats.Bus
-	Service TestServiceInterface
+	Service TestServiceProtonatsInterface
 }
 
 func NewTestServiceProtonatsClient(bus *protonats.Bus) * TestServiceProtonatsClient {
@@ -33,7 +33,7 @@ func NewTestServiceProtonatsClient(bus *protonats.Bus) * TestServiceProtonatsCli
 	return s
 }
 
-func NewTestServiceProtonatsServer(bus *protonats.Bus, service TestServiceInterface) * TestServiceProtonatsServer {
+func NewTestServiceProtonatsServer(bus *protonats.Bus, service TestServiceProtonatsInterface) * TestServiceProtonatsServer {
 	s := &TestServiceProtonatsServer{ Bus: bus, Service: service }
 	return s
 }
