@@ -19,28 +19,28 @@ type TestServiceInterface interface {
 
 
 
-type TestServiceClient struct {
+type TestServiceProtonatsClient struct {
 	Bus *protonats.Bus
 }
 
-type TestServiceServer struct {
+type TestServiceProtonatsServer struct {
 	Bus *protonats.Bus
 	Service TestServiceInterface
 }
 
-func NewTestServiceClient(bus *protonats.Bus) * TestServiceClient {
-	s := &TestServiceClient{ Bus: bus }
+func NewTestServiceProtonatsClient(bus *protonats.Bus) * TestServiceProtonatsClient {
+	s := &TestServiceProtonatsClient{ Bus: bus }
 	return s
 }
 
-func NewTestServiceServer(bus *protonats.Bus, service TestServiceInterface) * TestServiceServer {
-	s := &TestServiceServer{ Bus: bus, Service: service }
+func NewTestServiceProtonatsServer(bus *protonats.Bus, service TestServiceInterface) * TestServiceProtonatsServer {
+	s := &TestServiceProtonatsServer{ Bus: bus, Service: service }
 	return s
 }
 
 
 	
-func (service *TestServiceClient) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
+func (service *TestServiceProtonatsClient) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
 	functionName := "cdl.protonats/TestService/GetTestA"
 	
 	reqRaw, err := proto.Marshal(req)
@@ -75,7 +75,7 @@ func (service *TestServiceClient) GetTestA(ctx context.Context, req *TestAReques
 
 
 
-func (service *TestServiceServer) SubscribeTestService() (<-chan struct{}, error) {
+func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct{}, error) {
 	bus := service.Bus
 	
 	var err error

@@ -69,7 +69,7 @@ func TestError1(t *testing.T) {
 	assert.Equal(t, nil, err)
 	defer bus.Close()
 
-	svr := NewTestServiceServer(bus, d)
+	svr := NewTestServiceProtonatsServer(bus, d)
 	_, err = svr.SubscribeTestService()
 	assert.Equal(t, nil, err)
 
@@ -77,7 +77,7 @@ func TestError1(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
-	svc := NewTestServiceClient(client)
+	svc := NewTestServiceProtonatsClient(client)
 	_, err = svc.GetTestA(ctx, &TestARequest{Input: "123456"})
 
 	assert.NotEqual(t, nil, err)
@@ -91,7 +91,7 @@ func TestOK1(t *testing.T) {
 	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 	defer bus.Close()
-	svr := NewTestServiceServer(bus, d)
+	svr := NewTestServiceProtonatsServer(bus, d)
 	done, err := svr.SubscribeTestService()
 	assert.Equal(t, nil, err)
 
@@ -101,7 +101,7 @@ func TestOK1(t *testing.T) {
 
 	defer client.Close()
 
-	svc := NewTestServiceClient(client)
+	svc := NewTestServiceProtonatsClient(client)
 	resp, err := svc.GetTestA(ctx, &TestARequest{Input: "OK"})
 
 	log.Println(err)
@@ -119,14 +119,14 @@ func TestOKLoop(t *testing.T) {
 	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL, ID: "bus1"})
 	assert.Equal(t, nil, err)
 	defer bus.Close()
-	svr := NewTestServiceServer(bus, d)
+	svr := NewTestServiceProtonatsServer(bus, d)
 	_, err = svr.SubscribeTestService()
 	assert.Equal(t, nil, err)
 
 	bus2, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL, ID: "bus2"})
 	assert.Equal(t, nil, err)
 	defer bus2.Close()
-	svr2 := NewTestServiceServer(bus2, d)
+	svr2 := NewTestServiceProtonatsServer(bus2, d)
 	_, err = svr2.SubscribeTestService()
 	assert.Equal(t, nil, err)
 
@@ -137,7 +137,7 @@ func TestOKLoop(t *testing.T) {
 	defer client.Close()
 
 	max := 100000
-	svc := NewTestServiceClient(client)
+	svc := NewTestServiceProtonatsClient(client)
 
 	t1 := time.Now()
 	for i := 0; i < max; i++ {

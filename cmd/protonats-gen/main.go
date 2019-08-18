@@ -52,28 +52,28 @@ type {{ .Name }}Interface interface {
 {{ end }}
 
 {{ range .Services }}{{ $ServiceName := .Name }}
-type {{ $ServiceName }}Client struct {
+type {{ $ServiceName }}ProtonatsClient struct {
 	Bus *protonats.Bus
 }
 
-type {{ $ServiceName }}Server struct {
+type {{ $ServiceName }}ProtonatsServer struct {
 	Bus *protonats.Bus
 	Service {{ $ServiceName }}Interface
 }
 
-func New{{ $ServiceName }}Client(bus *protonats.Bus) * {{$ServiceName}}Client {
-	s := &{{ $ServiceName }}Client{ Bus: bus }
+func New{{ $ServiceName }}ProtonatsClient(bus *protonats.Bus) * {{$ServiceName}}ProtonatsClient {
+	s := &{{ $ServiceName }}ProtonatsClient{ Bus: bus }
 	return s
 }
 
-func New{{ $ServiceName }}Server(bus *protonats.Bus, service {{ $ServiceName }}Interface) * {{$ServiceName}}Server {
-	s := &{{ $ServiceName }}Server{ Bus: bus, Service: service }
+func New{{ $ServiceName }}ProtonatsServer(bus *protonats.Bus, service {{ $ServiceName }}Interface) * {{$ServiceName}}ProtonatsServer {
+	s := &{{ $ServiceName }}ProtonatsServer{ Bus: bus, Service: service }
 	return s
 }
 
 
 {{ range .Method }}	
-func (service *{{ $ServiceName }}Client) {{ .Name }}(ctx context.Context, req *{{ .InputType | stripLastDot }}) (*{{ .OutputType | stripLastDot }}, error) {
+func (service *{{ $ServiceName }}ProtonatsClient) {{ .Name }}(ctx context.Context, req *{{ .InputType | stripLastDot }}) (*{{ .OutputType | stripLastDot }}, error) {
 	functionName := "{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}"
 	
 	reqRaw, err := proto.Marshal(req)
@@ -108,7 +108,7 @@ func (service *{{ $ServiceName }}Client) {{ .Name }}(ctx context.Context, req *{
 
 {{ range .Services }}{{ $ServiceName := .Name }}
 
-func (service *{{ $ServiceName }}Server) Subscribe{{ .Name }}() (<-chan struct{}, error) {
+func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ .Name }}() (<-chan struct{}, error) {
 	bus := service.Bus
 	
 	var err error
