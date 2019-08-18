@@ -25,11 +25,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type TestService struct {
+type TestProtonatsService struct {
 	Fixtures Fixtures
 }
 
-func (b *TestService) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
+func (b *TestProtonatsService) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
 	if req.Input == "123456" {
 		return nil, errors.New("test-error-1")
 	}
@@ -40,14 +40,14 @@ func (b *TestService) GetTestA(ctx context.Context, req *TestARequest) (*TestARe
 		b.Fixtures.SetCounter(id.(string))
 	}
 	result := &TestAResponse{
-		Output: "OK",
+		Output: "OK" + req.Input,
 		Id:     req.Id,
 	}
 	return result, nil
 }
 
-func createTestService() *TestService {
-	test := TestService{
+func createTestService() *TestProtonatsService {
+	test := TestProtonatsService{
 		Fixtures: CreateFixtures(),
 	}
 
@@ -106,7 +106,7 @@ func TestOK1(t *testing.T) {
 
 	log.Println(err)
 	assert.Equal(t, nil, err)
-	assert.Equal(t, "OK", resp.Output)
+	assert.Equal(t, "OKOK", resp.Output)
 
 	cancel()
 	<-done
@@ -146,7 +146,7 @@ func TestOKLoop(t *testing.T) {
 		if err != nil {
 			t.Fail()
 		}
-		if resp.Output != "OK" {
+		if resp.Output != "OKOK" {
 			t.Fail()
 		}
 		if i%10000 == 0 {
