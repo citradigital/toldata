@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM znly/protoc
+FROM herpiko/protoc
 
 COPY build/protoc-gen-protonats /usr/bin
 
