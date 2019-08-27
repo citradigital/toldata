@@ -5,6 +5,8 @@ package test
 import (
 	"context"
 	"errors"
+	io "io"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/citradigital/protonats"
 	nats "github.com/nats-io/go-nats"
@@ -14,10 +16,10 @@ import (
 
 type TestServiceProtonatsInterface interface {
 	GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error)
-
+	FeedData(ctx context.Context, stream TestService_FeedDataProtonatsServer)
+	
+	
 }
-
-
 
 type TestServiceProtonatsClient struct {
 	Bus *protonats.Bus
@@ -40,6 +42,9 @@ func NewTestServiceProtonatsServer(bus *protonats.Bus, service TestServiceProton
 
 
 	
+
+
+
 func (service *TestServiceProtonatsClient) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
 	functionName := "cdl.protonats/TestService/GetTestA"
 	
@@ -71,6 +76,292 @@ func (service *TestServiceProtonatsClient) GetTestA(ctx context.Context, req *Te
 
 
 
+	
+
+
+type TestService_FeedDataProtonatsServer interface {
+	Receive() (*FeedDataRequest, error)
+	OnData(*FeedDataRequest) error
+	TriggerEOF()
+	GetResult() (*FeedDataResponse, error)
+	Done(resp *FeedDataResponse) error
+	Error(err error)
+}
+
+type TestService_FeedDataProtonatsServerImpl struct {
+	data   chan *FeedDataRequest
+	result chan *FeedDataResponse
+	cancel chan struct{}
+	eof    chan struct{}
+	err    error
+
+	isEOF        bool
+	isCanceled   bool
+	isDataClosed bool
+}
+
+func CreateTestService_FeedDataProtonatsServerImpl() *TestService_FeedDataProtonatsServerImpl {
+	t := &TestService_FeedDataProtonatsServerImpl{}
+	t.data = make(chan *FeedDataRequest)
+	t.result = make(chan *FeedDataResponse)
+	t.cancel = make(chan struct{})
+	t.eof = make(chan struct{})
+	return t
+}
+
+func (impl *TestService_FeedDataProtonatsServerImpl) TriggerEOF() {
+	if impl.err != nil {
+		return
+	}
+	if impl.isEOF == false {
+		close(impl.eof)
+		impl.isEOF = true
+	}
+}
+
+func (impl *TestService_FeedDataProtonatsServerImpl) Receive() (*FeedDataRequest, error) {
+
+	if impl.isEOF {
+		return nil, io.EOF
+	}
+
+	if impl.err != nil {
+		return nil, impl.err
+	}
+	select {
+	case data := <-impl.data:
+
+		return data, impl.err
+
+	case <-impl.cancel:
+		impl.cleanUp()
+		return nil, impl.err
+	case <-impl.eof:
+		impl.cleanUp()
+		return nil, io.EOF
+
+	}
+}
+
+func (impl *TestService_FeedDataProtonatsServerImpl) cleanUp() {
+	if impl.isEOF == false {
+		close(impl.eof)
+		impl.isEOF = true
+	}
+
+	if impl.isCanceled == false {
+		close(impl.cancel)
+		impl.isCanceled = true
+	}
+
+	if impl.isDataClosed == false {
+		close(impl.data)
+		impl.isDataClosed = true
+	}
+}
+
+func (impl *TestService_FeedDataProtonatsServerImpl) Cancel() {
+	if impl.isCanceled == false {
+		close(impl.cancel)
+		impl.isCanceled = true
+	}
+}
+
+func (impl *TestService_FeedDataProtonatsServerImpl) OnData(req *FeedDataRequest) error {
+	if impl.err != nil {
+		return impl.err
+	}
+	impl.data <- req
+	return nil
+}
+
+func (impl *TestService_FeedDataProtonatsServerImpl) Done(resp *FeedDataResponse) error {
+	if impl.err != nil && impl.err != io.EOF {
+		return impl.err
+	}
+
+	select {
+	case impl.result <- resp:
+		close(impl.result)
+		return nil
+	}
+
+}
+
+func (impl *TestService_FeedDataProtonatsServerImpl) GetResult() (*FeedDataResponse, error) {
+	if impl.err != nil && impl.err != io.EOF {
+		return nil, impl.err
+	}
+	select {
+	case result := <-impl.result:
+		return result, nil
+	}
+}
+
+func (impl *TestService_FeedDataProtonatsServerImpl) Error(err error) {
+	impl.err = err
+	impl.Cancel()
+}
+
+type TestServiceProtonatsClient_FeedDataInterface interface {
+	Send(ctx context.Context, req *FeedDataRequest) error
+	Done(ctx context.Context) (*FeedDataResponse, error)
+}
+
+type TestServiceProtonatsClient_FeedData struct {
+	Context context.Context
+	Service *TestServiceProtonatsClient
+	ID      string
+}
+
+func (client *TestServiceProtonatsClient_FeedData) Send(req *FeedDataRequest) error {
+	functionName := "cdl.protonats/TestService/FeedData_Send_" + client.ID
+	reqRaw, err := proto.Marshal(req)
+	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, reqRaw)
+	if err != nil {
+		return err
+	}
+
+	if result.Data[0] == 0 {
+		// 0 means no error
+		return nil
+	} else {
+		var pErr protonats.ErrorMessage
+		err = proto.Unmarshal(result.Data[1:], &pErr)
+		if err == nil {
+			return errors.New(pErr.ErrorMessage)
+		} else {
+			return err
+		}
+	}
+}
+
+func (client *TestServiceProtonatsClient_FeedData) Done() (*FeedDataResponse, error) {
+	functionName := "cdl.protonats/TestService/FeedData_Done_" + client.ID
+
+	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if result.Data[0] == 0 {
+		// 0 means no error
+		p := &FeedDataResponse{}
+		err = proto.Unmarshal(result.Data[1:], p)
+		if err != nil {
+			return nil, err
+		}
+		return p, nil
+	} else {
+		var pErr protonats.ErrorMessage
+		err = proto.Unmarshal(result.Data[1:], &pErr)
+		if err == nil {
+			return nil, errors.New(pErr.ErrorMessage)
+		} else {
+			return nil, err
+		}
+	}
+}
+
+func (service *TestServiceProtonatsServer) SubscribeTestService_FeedData(id string, stream TestService_FeedDataProtonatsServer) (<-chan struct{}, error) {
+	bus := service.Bus
+	var sub *nats.Subscription
+	var subscriptions []*nats.Subscription
+	done := make(chan struct{})
+	var err error
+
+	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/FeedData_Send_"+id, "cdl.protonats/TestService", func(m *nats.Msg) {
+		var input FeedDataRequest
+		err := proto.Unmarshal(m.Data, &input)
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+			return
+		}
+
+		err = stream.OnData(&input)
+
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+			return
+		} else {
+			zero := []byte{0}
+			bus.Connection.Publish(m.Reply, zero)
+		}
+	})
+
+	subscriptions = append(subscriptions, sub)
+
+	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/FeedData_Done_"+id, "cdl.protonats/TestService", func(m *nats.Msg) {
+
+		stream.TriggerEOF()
+		result, err := stream.GetResult()
+
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+			return
+		}
+		raw, err := proto.Marshal(result)
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+		} else {
+			zero := []byte{0}
+			bus.Connection.Publish(m.Reply, append(zero, raw...))
+		}
+
+	})
+
+	subscriptions = append(subscriptions, sub)
+
+	go func() {
+		defer close(done)
+
+		select {
+		case <-bus.Context.Done():
+			for i := range subscriptions {
+				subscriptions[i].Unsubscribe()
+			}
+		}
+	}()
+
+	return done, err
+}
+
+func (service *TestServiceProtonatsClient) FeedData(ctx context.Context)  (*TestServiceProtonatsClient_FeedData, error)  {
+	functionName := "cdl.protonats/TestService/FeedData"
+	
+	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.Data[0] == 0 {
+		// 0 means no error
+
+		p := &protonats.StreamInfo{}
+		err = proto.Unmarshal(result.Data[1:], p)
+		if err != nil {
+			return nil, err
+		}
+		return &TestServiceProtonatsClient_FeedData{
+			ID:      p.ID,
+			Context: ctx,
+			Service: service,
+		}, nil
+	} else {
+		var pErr protonats.ErrorMessage
+		err = proto.Unmarshal(result.Data[1:], &pErr)
+		if err == nil {
+			return nil, errors.New(pErr.ErrorMessage)
+		} else {
+			return nil, err
+		}
+	}
+}
+
+
+
+
 
 
 
@@ -85,8 +376,8 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 	done := make(chan struct{})
 	
 		
-
-	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/GetTestA", "TestService", func(m *nats.Msg) {
+	
+	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/GetTestA", "cdl.protonats/TestService", func(m *nats.Msg) {
 		var input TestARequest
 		err := proto.Unmarshal(m.Data, &input)
 		if err != nil {
@@ -112,6 +403,36 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 	})
 
 	subscriptions = append(subscriptions, sub)
+	
+
+
+
+		
+	
+	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/FeedData", "cdl.protonats/TestService", func(m *nats.Msg) {
+		stream := CreateTestService_FeedDataProtonatsServerImpl()
+
+		streamInfo := &protonats.StreamInfo{
+			ID: m.Reply,
+		}
+
+		service.SubscribeTestService_FeedData(m.Reply, stream)
+
+		raw, err := proto.Marshal(streamInfo)
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+		} else {
+			zero := []byte{0}
+			bus.Connection.Publish(m.Reply, append(zero, raw...))
+		}
+		service.Service.FeedData(bus.Context, stream)
+	})
+
+	subscriptions = append(subscriptions, sub)
+
+	
+
+
 
 	
 

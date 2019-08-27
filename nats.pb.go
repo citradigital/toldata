@@ -9,6 +9,7 @@
 
 	It has these top-level messages:
 		ErrorMessage
+		StreamInfo
 */
 package protonats
 
@@ -61,8 +62,25 @@ func (m *ErrorMessage) GetBusID() string {
 	return ""
 }
 
+type StreamInfo struct {
+	ID string `protobuf:"bytes,1,opt,name=ID,proto3" json:"ID,omitempty"`
+}
+
+func (m *StreamInfo) Reset()                    { *m = StreamInfo{} }
+func (m *StreamInfo) String() string            { return proto.CompactTextString(m) }
+func (*StreamInfo) ProtoMessage()               {}
+func (*StreamInfo) Descriptor() ([]byte, []int) { return fileDescriptorNats, []int{1} }
+
+func (m *StreamInfo) GetID() string {
+	if m != nil {
+		return m.ID
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*ErrorMessage)(nil), "cdl.protonats.ErrorMessage")
+	proto.RegisterType((*StreamInfo)(nil), "cdl.protonats.StreamInfo")
 }
 func (m *ErrorMessage) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
@@ -95,6 +113,30 @@ func (m *ErrorMessage) MarshalTo(dAtA []byte) (int, error) {
 		i++
 		i = encodeVarintNats(dAtA, i, uint64(len(m.BusID)))
 		i += copy(dAtA[i:], m.BusID)
+	}
+	return i, nil
+}
+
+func (m *StreamInfo) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalTo(dAtA)
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *StreamInfo) MarshalTo(dAtA []byte) (int, error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.ID) > 0 {
+		dAtA[i] = 0xa
+		i++
+		i = encodeVarintNats(dAtA, i, uint64(len(m.ID)))
+		i += copy(dAtA[i:], m.ID)
 	}
 	return i, nil
 }
@@ -137,6 +179,16 @@ func (m *ErrorMessage) Size() (n int) {
 		n += 1 + sovNats(uint64(m.Timestamp))
 	}
 	l = len(m.BusID)
+	if l > 0 {
+		n += 1 + l + sovNats(uint64(l))
+	}
+	return n
+}
+
+func (m *StreamInfo) Size() (n int) {
+	var l int
+	_ = l
+	l = len(m.ID)
 	if l > 0 {
 		n += 1 + l + sovNats(uint64(l))
 	}
@@ -283,6 +335,85 @@ func (m *ErrorMessage) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
+func (m *StreamInfo) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowNats
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: StreamInfo: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: StreamInfo: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ID", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowNats
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthNats
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ID = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipNats(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if skippy < 0 {
+				return ErrInvalidLengthNats
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
 func skipNats(dAtA []byte) (n int, err error) {
 	l := len(dAtA)
 	iNdEx := 0
@@ -391,15 +522,16 @@ var (
 func init() { proto.RegisterFile("nats.proto", fileDescriptorNats) }
 
 var fileDescriptorNats = []byte{
-	// 146 bytes of a gzipped FileDescriptorProto
+	// 171 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xe2, 0xe2, 0xca, 0x4b, 0x2c, 0x29,
 	0xd6, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0xe2, 0x4d, 0x4e, 0xc9, 0x81, 0x30, 0x41, 0x82, 0x4a,
 	0xe9, 0x5c, 0x3c, 0xae, 0x45, 0x45, 0xf9, 0x45, 0xbe, 0xa9, 0xc5, 0xc5, 0x89, 0xe9, 0xa9, 0x42,
 	0xca, 0x5c, 0xbc, 0xa9, 0x20, 0x7e, 0x7c, 0x2e, 0x44, 0x40, 0x82, 0x51, 0x81, 0x51, 0x83, 0x33,
 	0x88, 0x27, 0x15, 0x59, 0x91, 0x0c, 0x17, 0x67, 0x49, 0x66, 0x6e, 0x6a, 0x71, 0x49, 0x62, 0x6e,
 	0x81, 0x04, 0x93, 0x02, 0xa3, 0x06, 0x73, 0x10, 0x42, 0x40, 0x48, 0x84, 0x8b, 0x35, 0xa9, 0xb4,
-	0xd8, 0xd3, 0x45, 0x82, 0x19, 0xac, 0x15, 0xc2, 0x71, 0x92, 0x3e, 0xf1, 0x48, 0x8e, 0xf1, 0xc2,
-	0x23, 0x39, 0xc6, 0x07, 0x8f, 0xe4, 0x18, 0x27, 0x3c, 0x96, 0x63, 0x88, 0xe2, 0x84, 0xbb, 0x22,
-	0x89, 0x0d, 0xcc, 0x34, 0x06, 0x04, 0x00, 0x00, 0xff, 0xff, 0xe1, 0xd8, 0xdf, 0x42, 0xa9, 0x00,
-	0x00, 0x00,
+	0xd8, 0xd3, 0x45, 0x82, 0x19, 0xac, 0x15, 0xc2, 0x51, 0x92, 0xe1, 0xe2, 0x0a, 0x2e, 0x29, 0x4a,
+	0x4d, 0xcc, 0xf5, 0xcc, 0x4b, 0xcb, 0x17, 0xe2, 0xe3, 0x62, 0xf2, 0x74, 0x81, 0x9a, 0xcd, 0xe4,
+	0xe9, 0xe2, 0x24, 0x7d, 0xe2, 0x91, 0x1c, 0xe3, 0x85, 0x47, 0x72, 0x8c, 0x0f, 0x1e, 0xc9, 0x31,
+	0x4e, 0x78, 0x2c, 0xc7, 0x10, 0xc5, 0x09, 0x77, 0x63, 0x12, 0x1b, 0x98, 0x69, 0x0c, 0x08, 0x00,
+	0x00, 0xff, 0xff, 0x1d, 0x9a, 0xf1, 0xd0, 0xc7, 0x00, 0x00, 0x00,
 }

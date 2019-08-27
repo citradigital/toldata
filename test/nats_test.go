@@ -16,10 +16,10 @@ package test
 import (
 	"context"
 	"errors"
+	io "io"
 	"log"
 	"os"
 	"testing"
-	"time"
 
 	"github.com/citradigital/protonats"
 	"github.com/stretchr/testify/assert"
@@ -46,6 +46,35 @@ func (b *TestProtonatsService) GetTestA(ctx context.Context, req *TestARequest) 
 	return result, nil
 }
 
+func (b *TestProtonatsService) FeedData(ctx context.Context, stream TestService_FeedDataProtonatsServer) {
+	var sum int64
+
+	for {
+		data, err := stream.Receive()
+
+		if b.Fixtures != nil && b.Fixtures.GetValue() == "crash" {
+			err = errors.New("crash")
+		}
+
+		if err != nil {
+			if err == io.EOF {
+				err := stream.Done(&FeedDataResponse{Sum: sum})
+
+				if err != nil {
+					stream.Error(err)
+					break
+				}
+				break
+			}
+			stream.Error(err)
+
+			break
+		}
+
+		sum = sum + data.Data
+	}
+}
+
 func createTestService() *TestProtonatsService {
 	test := TestProtonatsService{
 		Fixtures: CreateFixtures(),
@@ -58,7 +87,7 @@ var natsURL string
 
 func TestInit(t *testing.T) {
 	natsURL = os.Getenv("NATS_URL")
-	log.SetFlags(log.Lshortfile)
+	log.SetFlags(log.Lshortfile | log.Lmicroseconds)
 }
 
 func TestError1(t *testing.T) {
@@ -77,7 +106,9 @@ func TestError1(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
+
 	svc := NewTestServiceProtonatsClient(client)
+
 	_, err = svc.GetTestA(ctx, &TestARequest{Input: "123456"})
 
 	assert.NotEqual(t, nil, err)
@@ -104,7 +135,6 @@ func TestOK1(t *testing.T) {
 	svc := NewTestServiceProtonatsClient(client)
 	resp, err := svc.GetTestA(ctx, &TestARequest{Input: "OK"})
 
-	log.Println(err)
 	assert.Equal(t, nil, err)
 	assert.Equal(t, "OKOK", resp.Output)
 
@@ -112,6 +142,7 @@ func TestOK1(t *testing.T) {
 	<-done
 }
 
+/*
 func TestOKLoop(t *testing.T) {
 	d := createTestService()
 
@@ -161,4 +192,89 @@ func TestOKLoop(t *testing.T) {
 	assert.Equal(t, true, (d.Fixtures.GetCounter("bus2") < max))
 
 	log.Println(d.Fixtures)
+}
+*/
+
+func TestStreamHappy(t *testing.T) {
+	d := createTestService()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+	defer bus.Close()
+	svr := NewTestServiceProtonatsServer(bus, d)
+	done, err := svr.SubscribeTestService()
+	assert.Equal(t, nil, err)
+
+	var client *protonats.Bus
+	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+
+	defer client.Close()
+
+	svc := NewTestServiceProtonatsClient(client)
+	stream, err := svc.FeedData(ctx)
+
+	assert.Equal(t, nil, err)
+	assert.NotEqual(t, nil, stream)
+
+	for i := 0; i < 10; i++ {
+		_ = stream.Send(&FeedDataRequest{
+			Data: int64(i),
+		})
+
+	}
+
+	resp, err := stream.Done()
+
+	assert.Equal(t, int64(45), resp.Sum)
+	cancel()
+	<-done
+}
+
+func TestStreamSad1(t *testing.T) {
+	d := createTestService()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+	defer bus.Close()
+	svr := NewTestServiceProtonatsServer(bus, d)
+	done, err := svr.SubscribeTestService()
+	assert.Equal(t, nil, err)
+
+	var client *protonats.Bus
+	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+
+	defer client.Close()
+
+	svc := NewTestServiceProtonatsClient(client)
+	stream, err := svc.FeedData(ctx)
+
+	assert.Equal(t, nil, err)
+	assert.NotEqual(t, nil, stream)
+
+	for i := 0; i < 10; i++ {
+		if i == 7 {
+			// simulate crash on 7th iteration
+			d.Fixtures.SetValue("crash")
+		}
+		err = stream.Send(&FeedDataRequest{
+			Data: int64(i),
+		})
+
+		if err != nil {
+			assert.NotEqual(t, nil, err)
+			break
+		}
+	}
+
+	resp, err := stream.Done()
+
+	assert.NotEqual(t, nil, err)
+
+	assert.Equal(t, true, resp == nil)
+	cancel()
+	<-done
 }

@@ -68,9 +68,11 @@ func (svc *{{ $ServiceName }}GRPC) Close() {
 }
 
 {{ range .Method }}	
+{{ if .ClientStreaming }}{{ else }}
 func (svc *{{ $ServiceName }}GRPC) {{ .Name }}(ctx context.Context, req *{{ .InputType | stripLastDot }}) (*{{ .OutputType | stripLastDot }}, error) {
 	return svc.Service.{{ .Name }}(ctx, req)
 }
+{{ end }}
 {{ end }}
 {{ end }}
 
@@ -83,6 +85,8 @@ package {{ .PackageName }}
 import (
 	"context"
 	"errors"
+	io "io"
+
 	"github.com/gogo/protobuf/proto"
 	"github.com/citradigital/protonats"
 	nats "github.com/nats-io/go-nats"
@@ -91,11 +95,10 @@ import (
 {{ $Namespace := .Namespace }}
 {{ range .Services }}{{ $ServiceName := .Name }}
 type {{ .Name }}ProtonatsInterface interface {
-	{{ range .Method }}{{ .Name }}(ctx context.Context, req *{{ .InputType | stripLastDot }}) (*{{ .OutputType | stripLastDot }}, error)
-{{ end }}
-}
-{{ end }}
-
+	{{ range .Method }}{{ if .ClientStreaming  }}{{ .Name }}(ctx context.Context, stream {{ $ServiceName }}_{{ .Name }}ProtonatsServer)
+	{{ else }}{{ .Name }}(ctx context.Context, req *{{ .InputType | stripLastDot }}) (*{{ .OutputType | stripLastDot }}, error){{ end }}
+	{{ end }}
+}{{ end }}
 {{ range .Services }}{{ $ServiceName := .Name }}
 type {{ $ServiceName }}ProtonatsClient struct {
 	Bus *protonats.Bus
@@ -118,6 +121,290 @@ func New{{ $ServiceName }}ProtonatsServer(bus *protonats.Bus, service {{ $Servic
 
 
 {{ range .Method }}	
+
+{{ if .ClientStreaming }}
+type {{ $ServiceName }}_{{ .Name }}ProtonatsServer interface {
+	Receive() (*{{ .InputType | stripLastDot }}, error)
+	OnData(*{{ .InputType | stripLastDot }}) error
+	TriggerEOF()
+	GetResult() (*{{ .OutputType | stripLastDot }}, error)
+	Done(resp *{{ .OutputType | stripLastDot }}) error
+	Error(err error)
+}
+
+type {{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl struct {
+	data   chan *{{ .InputType | stripLastDot }}
+	result chan *{{ .OutputType | stripLastDot }}
+	cancel chan struct{}
+	eof    chan struct{}
+	err    error
+
+	isEOF        bool
+	isCanceled   bool
+	isDataClosed bool
+}
+
+func Create{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl() *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl {
+	t := &{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl{}
+	t.data = make(chan *{{ .InputType | stripLastDot }})
+	t.result = make(chan *{{ .OutputType | stripLastDot }})
+	t.cancel = make(chan struct{})
+	t.eof = make(chan struct{})
+	return t
+}
+
+func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) TriggerEOF() {
+	if impl.err != nil {
+		return
+	}
+	if impl.isEOF == false {
+		close(impl.eof)
+		impl.isEOF = true
+	}
+}
+
+func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Receive() (*{{ .InputType | stripLastDot }}, error) {
+
+	if impl.isEOF {
+		return nil, io.EOF
+	}
+
+	if impl.err != nil {
+		return nil, impl.err
+	}
+	select {
+	case data := <-impl.data:
+
+		return data, impl.err
+
+	case <-impl.cancel:
+		impl.cleanUp()
+		return nil, impl.err
+	case <-impl.eof:
+		impl.cleanUp()
+		return nil, io.EOF
+
+	}
+}
+
+func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) cleanUp() {
+	if impl.isEOF == false {
+		close(impl.eof)
+		impl.isEOF = true
+	}
+
+	if impl.isCanceled == false {
+		close(impl.cancel)
+		impl.isCanceled = true
+	}
+
+	if impl.isDataClosed == false {
+		close(impl.data)
+		impl.isDataClosed = true
+	}
+}
+
+func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Cancel() {
+	if impl.isCanceled == false {
+		close(impl.cancel)
+		impl.isCanceled = true
+	}
+}
+
+func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) OnData(req *{{ .InputType | stripLastDot }}) error {
+	if impl.err != nil {
+		return impl.err
+	}
+	impl.data <- req
+	return nil
+}
+
+func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Done(resp *{{ .OutputType | stripLastDot }}) error {
+	if impl.err != nil && impl.err != io.EOF {
+		return impl.err
+	}
+
+	select {
+	case impl.result <- resp:
+		close(impl.result)
+		return nil
+	}
+
+}
+
+func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) GetResult() (*{{ .OutputType | stripLastDot }}, error) {
+	if impl.err != nil && impl.err != io.EOF {
+		return nil, impl.err
+	}
+	select {
+	case result := <-impl.result:
+		return result, nil
+	}
+}
+
+func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Error(err error) {
+	impl.err = err
+	impl.Cancel()
+}
+
+type {{ $ServiceName }}ProtonatsClient_{{ .Name }}Interface interface {
+	Send(ctx context.Context, req *{{ .InputType | stripLastDot }}) error
+	Done(ctx context.Context) (*{{ .OutputType | stripLastDot }}, error)
+}
+
+type {{ $ServiceName }}ProtonatsClient_{{ .Name }} struct {
+	Context context.Context
+	Service *{{ $ServiceName }}ProtonatsClient
+	ID      string
+}
+
+func (client *{{ $ServiceName }}ProtonatsClient_{{ .Name }}) Send(req *{{ .InputType | stripLastDot }}) error {
+	functionName := "{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}_Send_" + client.ID
+	reqRaw, err := proto.Marshal(req)
+	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, reqRaw)
+	if err != nil {
+		return err
+	}
+
+	if result.Data[0] == 0 {
+		// 0 means no error
+		return nil
+	} else {
+		var pErr protonats.ErrorMessage
+		err = proto.Unmarshal(result.Data[1:], &pErr)
+		if err == nil {
+			return errors.New(pErr.ErrorMessage)
+		} else {
+			return err
+		}
+	}
+}
+
+func (client *{{ $ServiceName }}ProtonatsClient_{{ .Name }}) Done() (*{{ .OutputType | stripLastDot }}, error) {
+	functionName := "{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}_Done_" + client.ID
+
+	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	if result.Data[0] == 0 {
+		// 0 means no error
+		p := &{{ .OutputType | stripLastDot }}{}
+		err = proto.Unmarshal(result.Data[1:], p)
+		if err != nil {
+			return nil, err
+		}
+		return p, nil
+	} else {
+		var pErr protonats.ErrorMessage
+		err = proto.Unmarshal(result.Data[1:], &pErr)
+		if err == nil {
+			return nil, errors.New(pErr.ErrorMessage)
+		} else {
+			return nil, err
+		}
+	}
+}
+
+func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ $ServiceName }}_{{ .Name }}(id string, stream {{ $ServiceName }}_{{ .Name }}ProtonatsServer) (<-chan struct{}, error) {
+	bus := service.Bus
+	var sub *nats.Subscription
+	var subscriptions []*nats.Subscription
+	done := make(chan struct{})
+	var err error
+
+	sub, err = bus.Connection.QueueSubscribe("{{ $Namespace}}/{{ $ServiceName }}/{{ .Name }}_Send_"+id, "{{ $Namespace}}/{{ $ServiceName }}", func(m *nats.Msg) {
+		var input {{ .InputType | stripLastDot }}
+		err := proto.Unmarshal(m.Data, &input)
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+			return
+		}
+
+		err = stream.OnData(&input)
+
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+			return
+		} else {
+			zero := []byte{0}
+			bus.Connection.Publish(m.Reply, zero)
+		}
+	})
+
+	subscriptions = append(subscriptions, sub)
+
+	sub, err = bus.Connection.QueueSubscribe("{{ $Namespace}}/{{ $ServiceName }}/{{ .Name }}_Done_"+id, "{{ $Namespace}}/{{ $ServiceName }}", func(m *nats.Msg) {
+
+		stream.TriggerEOF()
+		result, err := stream.GetResult()
+
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+			return
+		}
+		raw, err := proto.Marshal(result)
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+		} else {
+			zero := []byte{0}
+			bus.Connection.Publish(m.Reply, append(zero, raw...))
+		}
+
+	})
+
+	subscriptions = append(subscriptions, sub)
+
+	go func() {
+		defer close(done)
+
+		select {
+		case <-bus.Context.Done():
+			for i := range subscriptions {
+				subscriptions[i].Unsubscribe()
+			}
+		}
+	}()
+
+	return done, err
+}
+
+func (service *{{ $ServiceName }}ProtonatsClient) {{ .Name }}(ctx context.Context)  (*{{ $ServiceName }}ProtonatsClient_{{ .Name }}, error)  {
+	functionName := "{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}"
+	
+	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.Data[0] == 0 {
+		// 0 means no error
+
+		p := &protonats.StreamInfo{}
+		err = proto.Unmarshal(result.Data[1:], p)
+		if err != nil {
+			return nil, err
+		}
+		return &{{ $ServiceName }}ProtonatsClient_{{ .Name }}{
+			ID:      p.ID,
+			Context: ctx,
+			Service: service,
+		}, nil
+	} else {
+		var pErr protonats.ErrorMessage
+		err = proto.Unmarshal(result.Data[1:], &pErr)
+		if err == nil {
+			return nil, errors.New(pErr.ErrorMessage)
+		} else {
+			return nil, err
+		}
+	}
+}
+
+{{ else }}
+
 func (service *{{ $ServiceName }}ProtonatsClient) {{ .Name }}(ctx context.Context, req *{{ .InputType | stripLastDot }}) (*{{ .OutputType | stripLastDot }}, error) {
 	functionName := "{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}"
 	
@@ -147,6 +434,7 @@ func (service *{{ $ServiceName }}ProtonatsClient) {{ .Name }}(ctx context.Contex
 	}
 }
 
+{{ end }}
 
 {{ end }}
 {{ end }}
@@ -163,8 +451,30 @@ func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ .Name }}() (<-chan
 	done := make(chan struct{})
 	
 	{{ range .Method }}	
+	{{ if .ClientStreaming }}
+	sub, err = bus.Connection.QueueSubscribe("{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}", "{{ $Namespace}}/{{ $ServiceName }}", func(m *nats.Msg) {
+		stream := Create{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl()
 
-	sub, err = bus.Connection.QueueSubscribe("{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}", "{{ $ServiceName }}", func(m *nats.Msg) {
+		streamInfo := &protonats.StreamInfo{
+			ID: m.Reply,
+		}
+
+		service.Subscribe{{ $ServiceName }}_{{ .Name }}(m.Reply, stream)
+
+		raw, err := proto.Marshal(streamInfo)
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+		} else {
+			zero := []byte{0}
+			bus.Connection.Publish(m.Reply, append(zero, raw...))
+		}
+		service.Service.{{ .Name }}(bus.Context, stream)
+	})
+
+	subscriptions = append(subscriptions, sub)
+
+	{{ else }}
+	sub, err = bus.Connection.QueueSubscribe("{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}", "{{ $Namespace}}/{{ $ServiceName }}", func(m *nats.Msg) {
 		var input {{ .InputType | stripLastDot }}
 		err := proto.Unmarshal(m.Data, &input)
 		if err != nil {
@@ -190,6 +500,9 @@ func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ .Name }}() (<-chan
 	})
 
 	subscriptions = append(subscriptions, sub)
+	{{ end }}
+
+
 
 	{{ end }}
 

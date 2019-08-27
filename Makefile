@@ -34,7 +34,16 @@ export $IMAGE_TAG
 .PHONY : test
 
 test: 
-	MIGRATION_PATH=${MIGRATION_PATH} cd test && go test
+	docker run \
+		--network ${NAMESPACE}_default \
+		--env-file .env \
+		-v $(CACHE_PREFIX)/cache/go:/go/pkg/mod \
+		-v $(CACHE_PREFIX)/cache/apk:/etc/apk/cache \
+		-v $(PREFIX)/deployments/docker/build:/build \
+		-v $(PREFIX)/:/src \
+		-v $(PREFIX)/scripts/test.sh:/test.sh \
+		-e UID=$(UID) \
+		golang:1.12-alpine /test.sh 
 
 buildtest: 
 	docker-compose -f ${RECIPE} -p ${NAMESPACE} build testapi

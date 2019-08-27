@@ -1,5 +1,6 @@
 package test
 
+/*
 import (
 	"context"
 	"log"
@@ -77,3 +78,4 @@ func TestGRPC1(t *testing.T) {
 	assert.NotEqual(t, nil, res)
 	assert.Equal(t, "OKGRPC", res.Output)
 }
+*/

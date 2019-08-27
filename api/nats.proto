@@ -21,3 +21,7 @@ message ErrorMessage {
     int64 timestamp = 2;
     string busID = 3;
 }
+
+message StreamInfo {
+    string ID = 1;
+}

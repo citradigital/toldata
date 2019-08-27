@@ -35,9 +35,13 @@ func (svc *TestServiceGRPC) Close() {
 }
 
 	
+
 func (svc *TestServiceGRPC) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
 	return svc.Service.GetTestA(ctx, req)
 }
+
+	
+
 
 
 

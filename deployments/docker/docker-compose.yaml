@@ -15,19 +15,12 @@ version: '3.1'
 services:
   testnats:
     image: nats:latest
-    ports:
-      - "4222:4222"
-      - "8222:8222"
-      - "6222:6222"
   testapi:
     environment:
       COMPONENT: ${COMPONENT}
     depends_on:
       - "testnats"
     image: test-${COMPONENT}:test
-    volumes:
-      - ../../migrations/test:/migrations
-      - /tmp/go:/go/pkg
     build:
       context: ../..
       dockerfile: deployments/docker/testapi/Dockerfile
