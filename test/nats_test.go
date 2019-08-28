@@ -46,12 +46,11 @@ func (b *TestProtonatsService) GetTestA(ctx context.Context, req *TestARequest) 
 	return result, nil
 }
 
-func (b *TestProtonatsService) FeedData(ctx context.Context, stream TestService_FeedDataProtonatsServer) {
+func (b *TestProtonatsService) FeedData(stream TestService_FeedDataProtonatsServer) {
 	var sum int64
 
 	for {
 		data, err := stream.Receive()
-
 		if b.Fixtures != nil && b.Fixtures.GetValue() == "crash" {
 			err = errors.New("crash")
 		}
@@ -73,6 +72,23 @@ func (b *TestProtonatsService) FeedData(ctx context.Context, stream TestService_
 
 		sum = sum + data.Data
 	}
+}
+
+func (b *TestProtonatsService) StreamData(req *StreamDataRequest, stream TestService_StreamDataProtonatsServer) error {
+	// We have a set of data which will be multiplied by the req
+	// and stream those numbers down to the client
+	data := [10]int64{10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
+	for i := range data {
+		if b.Fixtures != nil && b.Fixtures.GetValue() == "crash" {
+			return errors.New("crash")
+		}
+		err := stream.Send(&StreamDataResponse{Data: data[i] * req.Id})
+
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func createTestService() *TestProtonatsService {
@@ -195,7 +211,8 @@ func TestOKLoop(t *testing.T) {
 }
 */
 
-func TestStreamHappy(t *testing.T) {
+func TestClientStreamHappy(t *testing.T) {
+	log.Println("ClientStreamHappy")
 	d := createTestService()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -222,7 +239,6 @@ func TestStreamHappy(t *testing.T) {
 		_ = stream.Send(&FeedDataRequest{
 			Data: int64(i),
 		})
-
 	}
 
 	resp, err := stream.Done()
@@ -232,7 +248,8 @@ func TestStreamHappy(t *testing.T) {
 	<-done
 }
 
-func TestStreamSad1(t *testing.T) {
+func TestClientStreamSad1(t *testing.T) {
+	log.Println("ClietnStreamSad1")
 	d := createTestService()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -275,6 +292,111 @@ func TestStreamSad1(t *testing.T) {
 	assert.NotEqual(t, nil, err)
 
 	assert.Equal(t, true, resp == nil)
+	cancel()
+	<-done
+}
+
+func TestServerStreamHappy(t *testing.T) {
+	log.Println("ServerStreamHappy")
+
+	d := createTestService()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+	defer bus.Close()
+	svr := NewTestServiceProtonatsServer(bus, d)
+	done, err := svr.SubscribeTestService()
+	assert.Equal(t, nil, err)
+
+	var client *protonats.Bus
+	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+
+	defer client.Close()
+
+	svc := NewTestServiceProtonatsClient(client)
+	stream, err := svc.StreamData(ctx, &StreamDataRequest{
+		Id: 2,
+	})
+
+	assert.Equal(t, nil, err)
+	assert.NotEqual(t, nil, stream)
+
+	count := 0
+	var sum int64
+	for {
+		// Wait for the data to be available from the stream
+		data, err := stream.Receive()
+		if count == 10 {
+			assert.Equal(t, io.EOF, err)
+		} else {
+			assert.Equal(t, nil, err)
+		}
+		if err != nil {
+			break
+		}
+		sum = sum + data.Data
+		count++
+	}
+
+	assert.Equal(t, int64(110), sum)
+	assert.Equal(t, 10, count)
+
+	cancel()
+	<-done
+}
+
+func TestServerStreamSad1(t *testing.T) {
+	log.Println("ServerStreamSad")
+
+	d := createTestService()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+	defer bus.Close()
+	svr := NewTestServiceProtonatsServer(bus, d)
+	done, err := svr.SubscribeTestService()
+	assert.Equal(t, nil, err)
+
+	var client *protonats.Bus
+	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+
+	defer client.Close()
+
+	svc := NewTestServiceProtonatsClient(client)
+	stream, err := svc.StreamData(ctx, &StreamDataRequest{
+		Id: 2,
+	})
+
+	assert.Equal(t, nil, err)
+	assert.NotEqual(t, nil, stream)
+
+	count := 0
+	var sum int64
+	for {
+		// Wait for the data to be available from the stream
+		data, err := stream.Receive()
+		if count == 8 {
+			assert.Equal(t, errors.New("crash"), err)
+		} else {
+			assert.Equal(t, nil, err)
+		}
+		if err != nil {
+			break
+		}
+		sum = sum + data.Data
+		count++
+		if count == 7 {
+			d.Fixtures.SetValue("crash")
+		}
+	}
+
+	assert.Equal(t, int64(104), sum)
+	assert.Equal(t, 8, count)
+
 	cancel()
 	<-done
 }

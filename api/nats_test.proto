@@ -34,7 +34,16 @@ message FeedDataResponse {
     int64 sum = 1;
 }
 
+message StreamDataRequest {
+    int64 id = 1;
+}
+
+message StreamDataResponse {
+    int64 data = 1;
+}
+
 service TestService {
     rpc GetTestA(TestARequest) returns (TestAResponse) {}
     rpc FeedData(stream FeedDataRequest) returns (FeedDataResponse) {}
+    rpc StreamData(StreamDataRequest) returns (stream StreamDataResponse) {}
 }
