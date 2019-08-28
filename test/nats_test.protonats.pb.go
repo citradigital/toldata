@@ -310,11 +310,10 @@ func (client *TestServiceProtonatsClient_FeedData) Done() (*FeedDataResponse, er
 	}
 }
 
-func (service *TestServiceProtonatsServer) SubscribeTestService_FeedData(id string, stream TestService_FeedDataProtonatsServer) (<-chan struct{}, error) {
+func (service *TestServiceProtonatsServer) SubscribeTestService_FeedData(done chan struct{}, id string, stream TestService_FeedDataProtonatsServer) error {
 	bus := service.Bus
 	var sub *nats.Subscription
 	var subscriptions []*nats.Subscription
-	done := make(chan struct{})
 	var err error
 
 	
@@ -335,6 +334,7 @@ func (service *TestServiceProtonatsServer) SubscribeTestService_FeedData(id stri
 			zero := []byte{0}
 			bus.Connection.Publish(m.Reply, zero)
 		}
+
 	})
 
 	subscriptions = append(subscriptions, sub)
@@ -366,17 +366,15 @@ func (service *TestServiceProtonatsServer) SubscribeTestService_FeedData(id stri
 
 
 	go func() {
-		defer close(done)
-
 		select {
-		case <-bus.Context.Done():
+		case <-done:
 			for i := range subscriptions {
 				subscriptions[i].Unsubscribe()
 			}
 		}
 	}()
 
-	return done, err
+	return err
 }
 
 
@@ -619,11 +617,10 @@ func (client *TestServiceProtonatsClient_StreamData) Done() (*StreamDataResponse
 	}
 }
 
-func (service *TestServiceProtonatsServer) SubscribeTestService_StreamData(id string, stream TestService_StreamDataProtonatsServer) (<-chan struct{}, error) {
+func (service *TestServiceProtonatsServer) SubscribeTestService_StreamData(done chan struct{}, id string, stream TestService_StreamDataProtonatsServer) error {
 	bus := service.Bus
 	var sub *nats.Subscription
 	var subscriptions []*nats.Subscription
-	done := make(chan struct{})
 	var err error
 
 	
@@ -658,17 +655,15 @@ func (service *TestServiceProtonatsServer) SubscribeTestService_StreamData(id st
 
 
 	go func() {
-		defer close(done)
-
 		select {
-		case <-bus.Context.Done():
+		case <-done:
 			for i := range subscriptions {
 				subscriptions[i].Unsubscribe()
 			}
 		}
 	}()
 
-	return done, err
+	return err
 }
 
 
@@ -762,7 +757,8 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 			ID: m.Reply,
 		}
 
-		service.SubscribeTestService_FeedData(m.Reply, stream)
+		done := make(chan struct{})
+		service.SubscribeTestService_FeedData(done, m.Reply, stream)
 
 		raw, err := proto.Marshal(streamInfo)
 		if err != nil {
@@ -791,7 +787,8 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 			ID: m.Reply,
 		}
 
-		service.SubscribeTestService_StreamData(m.Reply, stream)
+		done := make(chan struct{})
+		service.SubscribeTestService_StreamData(done, m.Reply, stream)
 
 		raw, err := proto.Marshal(streamInfo)
 		if err != nil {

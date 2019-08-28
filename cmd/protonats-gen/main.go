@@ -408,11 +408,10 @@ func (client *{{ $ServiceName }}ProtonatsClient_{{ .Name }}) Done() (*{{ .Output
 	}
 }
 
-func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ $ServiceName }}_{{ .Name }}(id string, stream {{ $ServiceName }}_{{ .Name }}ProtonatsServer) (<-chan struct{}, error) {
+func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ $ServiceName }}_{{ .Name }}(done chan struct{}, id string, stream {{ $ServiceName }}_{{ .Name }}ProtonatsServer) error {
 	bus := service.Bus
 	var sub *nats.Subscription
 	var subscriptions []*nats.Subscription
-	done := make(chan struct{})
 	var err error
 
 	{{ if .ClientStreaming }}
@@ -433,6 +432,7 @@ func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ $ServiceName }}_{{
 			zero := []byte{0}
 			bus.Connection.Publish(m.Reply, zero)
 		}
+
 	})
 
 	subscriptions = append(subscriptions, sub)
@@ -490,17 +490,15 @@ func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ $ServiceName }}_{{
 
 
 	go func() {
-		defer close(done)
-
 		select {
-		case <-bus.Context.Done():
+		case <-done:
 			for i := range subscriptions {
 				subscriptions[i].Unsubscribe()
 			}
 		}
 	}()
 
-	return done, err
+	return err
 }
 
 {{ if .ServerStreaming }}
@@ -599,7 +597,8 @@ func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ .Name }}() (<-chan
 			ID: m.Reply,
 		}
 
-		service.Subscribe{{ $ServiceName }}_{{ .Name }}(m.Reply, stream)
+		done := make(chan struct{})
+		service.Subscribe{{ $ServiceName }}_{{ .Name }}(done, m.Reply, stream)
 
 		raw, err := proto.Marshal(streamInfo)
 		if err != nil {
