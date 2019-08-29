@@ -119,10 +119,12 @@ type TestService_FeedDataProtonatsServerImpl struct {
 	
 	cancel chan struct{}
 	eof    chan struct{}
-	err    error
+	err    chan error
 
 	isEOF        bool
 	isCanceled   bool
+
+	streamErr 	error
 
 	Context context.Context
 	
@@ -139,11 +141,12 @@ func CreateTestService_FeedDataProtonatsServerImpl(ctx context.Context) *TestSer
 	t.response = make(chan *FeedDataResponse)
 	t.cancel = make(chan struct{})
 	t.eof = make(chan struct{})
+	t.err = make(chan error)
 	return t
 }
 
 func (impl *TestService_FeedDataProtonatsServerImpl) TriggerEOF() {
-	if impl.err != nil {
+	if impl.streamErr != nil {
 		return
 	}
 	if impl.isEOF == false {
@@ -156,59 +159,72 @@ func (impl *TestService_FeedDataProtonatsServerImpl) TriggerEOF() {
 
 func (impl *TestService_FeedDataProtonatsServerImpl) Receive() (*FeedDataRequest, error) {
 
+	if impl.streamErr != nil {
+		return nil, impl.streamErr
+	}
 	if impl.isEOF {
 		return nil, io.EOF
 	}
 
-	if impl.err != nil {
-		return nil, impl.err
-	}
 	select {
 	case data := <-impl.request:
-
-		return data, impl.err
-
+		return data, impl.streamErr
 	case <-impl.cancel:
-		impl.cleanUp()
-		return nil, impl.err
+		return nil, impl.streamErr
 	case <-impl.eof:
-		impl.cleanUp()
 		return nil, io.EOF
+	case err := <-impl.err:
+
+		return nil, err
 
 	}
 }
 
 func (impl *TestService_FeedDataProtonatsServerImpl) OnData(req *FeedDataRequest) error {
-	if impl.err != nil {
-		return impl.err
+	if impl.streamErr != nil {
+		return impl.streamErr
 	}
-	impl.request <- req
-	return nil
+
+	select {
+	case err := <-impl.err:
+		return err
+	case impl.request <- req:
+		return nil
+	}
 }
 
 func (impl *TestService_FeedDataProtonatsServerImpl) Done(resp *FeedDataResponse) error {
-	if impl.err != nil && impl.err != io.EOF {
-		return impl.err
+	if impl.streamErr != nil {
+		return impl.streamErr
 	}
 
 	select {
 	case impl.response <- resp:
-		close(impl.response)
 		return nil
-	}
+	case err := <-impl.err:
+		return err
 
+	}
 }
 
 
 
 
 func (impl *TestService_FeedDataProtonatsServerImpl) GetResponse() (*FeedDataResponse, error) {
-	if impl.err != nil {
-		return nil, impl.err
+	if impl.streamErr != nil {
+		return nil, impl.streamErr
 	}
+
 	select {
+	case err := <-impl.err:
+		return nil, err
+
+	case <-impl.cancel:
+		return nil, errors.New("canceled")
+
 	case response := <-impl.response:
 		return response, nil
+
 		
 	}
 }
@@ -217,23 +233,6 @@ func (impl *TestService_FeedDataProtonatsServerImpl) GetResponse() (*FeedDataRes
 
 
 
-
-func (impl *TestService_FeedDataProtonatsServerImpl) cleanUp() {
-	if impl.isEOF == false {
-		close(impl.eof)
-		impl.isEOF = true
-	}
-
-	if impl.isCanceled == false {
-		close(impl.cancel)
-		impl.isCanceled = true
-	}
-
-	if impl.isRequestClosed == false {
-		close(impl.request)
-		impl.isRequestClosed = true
-	}
-}
 
 func (impl *TestService_FeedDataProtonatsServerImpl) Cancel() {
 	if impl.isCanceled == false {
@@ -244,8 +243,8 @@ func (impl *TestService_FeedDataProtonatsServerImpl) Cancel() {
 
 
 func (impl *TestService_FeedDataProtonatsServerImpl) Error(err error) {
-	impl.err = err
-	impl.Cancel()
+	impl.err <- err
+	impl.streamErr = err
 }
 
 type TestServiceProtonatsClient_FeedData struct {
@@ -443,10 +442,12 @@ type TestService_StreamDataProtonatsServerImpl struct {
 	
 	cancel chan struct{}
 	eof    chan struct{}
-	err    error
+	err    chan error
 
 	isEOF        bool
 	isCanceled   bool
+
+	streamErr 	error
 
 	Context context.Context
 	
@@ -463,11 +464,12 @@ func CreateTestService_StreamDataProtonatsServerImpl(ctx context.Context) *TestS
 	t.response = make(chan *StreamDataResponse)
 	t.cancel = make(chan struct{})
 	t.eof = make(chan struct{})
+	t.err = make(chan error)
 	return t
 }
 
 func (impl *TestService_StreamDataProtonatsServerImpl) TriggerEOF() {
-	if impl.err != nil {
+	if impl.streamErr != nil {
 		return
 	}
 	if impl.isEOF == false {
@@ -479,15 +481,22 @@ func (impl *TestService_StreamDataProtonatsServerImpl) TriggerEOF() {
 
 
 func (impl *TestService_StreamDataProtonatsServerImpl) GetResponse() (*StreamDataResponse, error) {
-	if impl.err != nil {
-		return nil, impl.err
+	if impl.streamErr != nil {
+		return nil, impl.streamErr
 	}
+
 	select {
+	case err := <-impl.err:
+		return nil, err
+
+	case <-impl.cancel:
+		return nil, errors.New("canceled")
+
 	case response := <-impl.response:
 		return response, nil
+
 		
 	case <-impl.eof:
-		impl.cleanUp()
 		return nil, io.EOF
 		
 	}
@@ -501,42 +510,26 @@ func (impl *TestService_StreamDataProtonatsServerImpl) Send(req *StreamDataRespo
 		return io.EOF
 	}
 
-	if impl.err != nil {
-		return impl.err
+	if impl.streamErr != nil {
+		return impl.streamErr
 	}
 	select {
 	case impl.response <- req:
-		return impl.err
+		return impl.streamErr
 
 	case <-impl.cancel:
-		impl.cleanUp()
-		return impl.err
+		return impl.streamErr
 	case <-impl.eof:
-		impl.cleanUp()
 		return io.EOF
+	case err := <-impl.err:
+		return err
+
 	}
 }
 
 
 
 
-
-func (impl *TestService_StreamDataProtonatsServerImpl) cleanUp() {
-	if impl.isEOF == false {
-		close(impl.eof)
-		impl.isEOF = true
-	}
-
-	if impl.isCanceled == false {
-		close(impl.cancel)
-		impl.isCanceled = true
-	}
-
-	if impl.isRequestClosed == false {
-		close(impl.request)
-		impl.isRequestClosed = true
-	}
-}
 
 func (impl *TestService_StreamDataProtonatsServerImpl) Cancel() {
 	if impl.isCanceled == false {
@@ -547,8 +540,8 @@ func (impl *TestService_StreamDataProtonatsServerImpl) Cancel() {
 
 
 func (impl *TestService_StreamDataProtonatsServerImpl) Error(err error) {
-	impl.err = err
-	impl.Cancel()
+	impl.err <- err
+	impl.streamErr = err
 }
 
 type TestServiceProtonatsClient_StreamData struct {

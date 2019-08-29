@@ -49,29 +49,35 @@ func (b *TestProtonatsService) GetTestA(ctx context.Context, req *TestARequest) 
 func (b *TestProtonatsService) FeedData(stream TestService_FeedDataProtonatsServer) {
 	var sum int64
 
+	var data *FeedDataRequest
+	var err error
 	for {
-		data, err := stream.Receive()
+		data, err = stream.Receive()
 		if b.Fixtures != nil && b.Fixtures.GetValue() == "crash" {
 			err = errors.New("crash")
 		}
 
 		if err != nil {
-			if err == io.EOF {
-				err := stream.Done(&FeedDataResponse{Sum: sum})
-
-				if err != nil {
-					stream.Error(err)
-					break
-				}
-				break
-			}
-			stream.Error(err)
-
 			break
 		}
 
 		sum = sum + data.Data
 	}
+
+	if b.Fixtures != nil && b.Fixtures.GetValue() == "crash2" {
+		err = errors.New("crash2")
+	}
+
+	if err == io.EOF {
+		err := stream.Done(&FeedDataResponse{Sum: sum})
+
+		if err != nil {
+			stream.Error(err)
+		}
+	} else if err != nil {
+		stream.Error(err)
+	}
+
 }
 
 func (b *TestProtonatsService) StreamData(req *StreamDataRequest, stream TestService_StreamDataProtonatsServer) error {
@@ -277,6 +283,53 @@ func TestClientStreamSad1(t *testing.T) {
 			// simulate crash on 7th iteration
 			d.Fixtures.SetValue("crash")
 		}
+		err = stream.Send(&FeedDataRequest{
+			Data: int64(i),
+		})
+
+		if err != nil {
+			assert.NotEqual(t, nil, err)
+			break
+		}
+	}
+
+	resp, err := stream.Done()
+
+	assert.NotEqual(t, nil, err)
+
+	assert.Equal(t, true, resp == nil)
+	cancel()
+	<-done
+}
+
+func TestClientStreamSad2(t *testing.T) {
+	log.Println("ClietnStreamSad2")
+	d := createTestService()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+	defer bus.Close()
+	svr := NewTestServiceProtonatsServer(bus, d)
+	done, err := svr.SubscribeTestService()
+	assert.Equal(t, nil, err)
+
+	var client *protonats.Bus
+	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+
+	defer client.Close()
+
+	svc := NewTestServiceProtonatsClient(client)
+	stream, err := svc.FeedData(ctx)
+
+	assert.Equal(t, nil, err)
+	assert.NotEqual(t, nil, stream)
+
+	// simulate crash
+	d.Fixtures.SetValue("crash2")
+
+	for i := 0; i < 10; i++ {
 		err = stream.Send(&FeedDataRequest{
 			Data: int64(i),
 		})

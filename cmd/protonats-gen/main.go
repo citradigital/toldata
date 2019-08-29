@@ -161,10 +161,12 @@ type {{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl struct {
 	
 	cancel chan struct{}
 	eof    chan struct{}
-	err    error
+	err    chan error
 
 	isEOF        bool
 	isCanceled   bool
+
+	streamErr 	error
 
 	Context context.Context
 	
@@ -182,11 +184,12 @@ func Create{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl(ctx context.Context
 	t.response = make(chan *{{ .OutputType | stripLastDot }})
 	t.cancel = make(chan struct{})
 	t.eof = make(chan struct{})
+	t.err = make(chan error)
 	return t
 }
 
 func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) TriggerEOF() {
-	if impl.err != nil {
+	if impl.streamErr != nil {
 		return
 	}
 	if impl.isEOF == false {
@@ -199,62 +202,74 @@ func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) TriggerEOF() {
 
 func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Receive() (*{{ .InputType | stripLastDot }}, error) {
 
+	if impl.streamErr != nil {
+		return nil, impl.streamErr
+	}
 	if impl.isEOF {
 		return nil, io.EOF
 	}
 
-	if impl.err != nil {
-		return nil, impl.err
-	}
 	select {
 	case data := <-impl.request:
-
-		return data, impl.err
-
+		return data, impl.streamErr
 	case <-impl.cancel:
-		impl.cleanUp()
-		return nil, impl.err
+		return nil, impl.streamErr
 	case <-impl.eof:
-		impl.cleanUp()
 		return nil, io.EOF
+	case err := <-impl.err:
+
+		return nil, err
 
 	}
 }
 
 func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) OnData(req *{{ .InputType | stripLastDot }}) error {
-	if impl.err != nil {
-		return impl.err
+	if impl.streamErr != nil {
+		return impl.streamErr
 	}
-	impl.request <- req
-	return nil
+
+	select {
+	case err := <-impl.err:
+		return err
+	case impl.request <- req:
+		return nil
+	}
 }
 
 func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Done(resp *{{ .OutputType | stripLastDot }}) error {
-	if impl.err != nil && impl.err != io.EOF {
-		return impl.err
+	if impl.streamErr != nil {
+		return impl.streamErr
 	}
 
 	select {
 	case impl.response <- resp:
-		close(impl.response)
 		return nil
-	}
+	case err := <-impl.err:
+		return err
 
+	}
 }
 
 
 {{ end }}
 
 func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) GetResponse() (*{{ .OutputType | stripLastDot }}, error) {
-	if impl.err != nil {
-		return nil, impl.err
+	if impl.streamErr != nil {
+		return nil, impl.streamErr
 	}
+
 	select {
+	case err := <-impl.err:
+		return nil, err
+
+	case <-impl.cancel:
+		return nil, errors.New("canceled")
+
 	case response := <-impl.response:
 		return response, nil
+
 		{{ if .ServerStreaming }}
 	case <-impl.eof:
-		impl.cleanUp()
 		return nil, io.EOF
 		{{ end }}
 	}
@@ -268,42 +283,26 @@ func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Send(req *{{ .Out
 		return io.EOF
 	}
 
-	if impl.err != nil {
-		return impl.err
+	if impl.streamErr != nil {
+		return impl.streamErr
 	}
 	select {
 	case impl.response <- req:
-		return impl.err
+		return impl.streamErr
 
 	case <-impl.cancel:
-		impl.cleanUp()
-		return impl.err
+		return impl.streamErr
 	case <-impl.eof:
-		impl.cleanUp()
 		return io.EOF
+	case err := <-impl.err:
+		return err
+
 	}
 }
 
 {{ end }}
 
 
-
-func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) cleanUp() {
-	if impl.isEOF == false {
-		close(impl.eof)
-		impl.isEOF = true
-	}
-
-	if impl.isCanceled == false {
-		close(impl.cancel)
-		impl.isCanceled = true
-	}
-
-	if impl.isRequestClosed == false {
-		close(impl.request)
-		impl.isRequestClosed = true
-	}
-}
 
 func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Cancel() {
 	if impl.isCanceled == false {
@@ -314,8 +313,8 @@ func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Cancel() {
 
 
 func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Error(err error) {
-	impl.err = err
-	impl.Cancel()
+	impl.err <- err
+	impl.streamErr = err
 }
 
 type {{ $ServiceName }}ProtonatsClient_{{ .Name }} struct {
