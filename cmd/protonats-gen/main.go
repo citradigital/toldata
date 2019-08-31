@@ -145,6 +145,8 @@ type {{ $ServiceName }}_{{ .Name }}ProtonatsServer interface {
 	
 	TriggerEOF()
 	Error(err error)
+	OnExit(func())
+	Exit()
 }
 
 type {{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl struct {
@@ -162,6 +164,7 @@ type {{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl struct {
 	cancel chan struct{}
 	eof    chan struct{}
 	err    chan error
+	done   chan struct{}
 
 	isEOF        bool
 	isCanceled   bool
@@ -184,8 +187,22 @@ func Create{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl(ctx context.Context
 	t.response = make(chan *{{ .OutputType | stripLastDot }})
 	t.cancel = make(chan struct{})
 	t.eof = make(chan struct{})
+	t.done = make(chan struct{})
 	t.err = make(chan error)
 	return t
+}
+
+func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Exit() {
+	close(impl.done)
+}
+
+func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) OnExit(fn func()) {
+	go func() {
+		select {
+		case <-impl.done:
+			fn()
+		}
+	}()
 }
 
 func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) TriggerEOF() {
@@ -260,9 +277,16 @@ func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) GetResponse() (*{
 
 	select {
 	case err := <-impl.err:
+		{{ if .ServerStreaming }}
+		impl.Exit()
+		{{ end }}
+		
 		return nil, err
 
 	case <-impl.cancel:
+		{{ if .ServerStreaming }}
+		impl.Exit()
+		{{ end }}
 		return nil, errors.New("canceled")
 
 	case response := <-impl.response:
@@ -270,6 +294,7 @@ func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) GetResponse() (*{
 
 		{{ if .ServerStreaming }}
 	case <-impl.eof:
+		impl.Exit()
 		return nil, io.EOF
 		{{ end }}
 	}
@@ -407,7 +432,7 @@ func (client *{{ $ServiceName }}ProtonatsClient_{{ .Name }}) Done() (*{{ .Output
 	}
 }
 
-func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ $ServiceName }}_{{ .Name }}(done chan struct{}, id string, stream {{ $ServiceName }}_{{ .Name }}ProtonatsServer) error {
+func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Subscribe(service *{{ $ServiceName }}ProtonatsServer, id string) error {
 	bus := service.Bus
 	var sub *nats.Subscription
 	var subscriptions []*nats.Subscription
@@ -422,7 +447,7 @@ func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ $ServiceName }}_{{
 			return
 		}
 
-		err = stream.OnData(&input)
+		err = impl.OnData(&input)
 
 		if err != nil {
 			bus.HandleError(m.Reply, err)
@@ -438,8 +463,9 @@ func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ $ServiceName }}_{{
 
 	sub, err = bus.Connection.QueueSubscribe("{{ $Namespace}}/{{ $ServiceName }}/{{ .Name }}_Done_"+id, "{{ $Namespace}}/{{ $ServiceName }}", func(m *nats.Msg) {
 
-		stream.TriggerEOF()
-		result, err := stream.GetResponse()
+		defer impl.Exit()
+		impl.TriggerEOF()
+		result, err := impl.GetResponse()
 
 		if err != nil {
 			bus.HandleError(m.Reply, err)
@@ -468,7 +494,7 @@ func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ $ServiceName }}_{{
 			return
 		}
 
-		response, err := stream.GetResponse()
+		response, err := impl.GetResponse()
 		if err != nil {
 			bus.HandleError(m.Reply, err)
 			return
@@ -488,14 +514,11 @@ func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ $ServiceName }}_{{
 	{{ end }}
 
 
-	go func() {
-		select {
-		case <-done:
+	impl.OnExit(func() {
 			for i := range subscriptions {
 				subscriptions[i].Unsubscribe()
 			}
-		}
-	}()
+	})
 
 	return err
 }
@@ -592,14 +615,13 @@ func (service *{{ $ServiceName }}ProtonatsServer) Subscribe{{ .Name }}() (<-chan
 	sub, err = bus.Connection.QueueSubscribe("{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}", "{{ $Namespace}}/{{ $ServiceName }}", func(m *nats.Msg) {
 		stream := Create{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl(bus.Context)
 
-		streamInfo := &protonats.StreamInfo{
+		
+
+		stream.Subscribe(service, m.Reply)
+
+		raw, err := proto.Marshal(&protonats.StreamInfo{
 			ID: m.Reply,
-		}
-
-		done := make(chan struct{})
-		service.Subscribe{{ $ServiceName }}_{{ .Name }}(done, m.Reply, stream)
-
-		raw, err := proto.Marshal(streamInfo)
+		})
 		if err != nil {
 			bus.HandleError(m.Reply, err)
 		} else {

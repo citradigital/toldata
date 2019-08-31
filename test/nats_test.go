@@ -16,10 +16,12 @@ package test
 import (
 	"context"
 	"errors"
+	fmt "fmt"
 	io "io"
 	"log"
-	"os"
+	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/citradigital/protonats"
 	"github.com/stretchr/testify/assert"
@@ -41,6 +43,23 @@ func (b *TestProtonatsService) GetTestA(ctx context.Context, req *TestARequest) 
 	}
 	result := &TestAResponse{
 		Output: "OK" + req.Input,
+		Id:     req.Id,
+	}
+	return result, nil
+}
+
+func (b *TestProtonatsService) GetTestAB(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
+	if req.Input == "123456" {
+		return nil, errors.New("test-error-1")
+	}
+
+	rand.Seed(time.Now().UnixNano())
+	tx := rand.Intn(200) + 1
+
+	time.Sleep(time.Duration(tx) * time.Millisecond)
+
+	result := &TestAResponse{
+		Output: "AB" + req.Input,
 		Id:     req.Id,
 	}
 	return result, nil
@@ -84,12 +103,35 @@ func (b *TestProtonatsService) StreamData(req *StreamDataRequest, stream TestSer
 	// We have a set of data which will be multiplied by the req
 	// and stream those numbers down to the client
 	data := [10]int64{10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
+	if b.Fixtures != nil && b.Fixtures.GetData() != 0 {
+		start := b.Fixtures.GetData()
+		data := make([]int64, start)
+		for i := range data {
+			data[i] = start - int64(i)
+		}
+	}
 	for i := range data {
 		if b.Fixtures != nil && b.Fixtures.GetValue() == "crash" {
 			return errors.New("crash")
 		}
 		err := stream.Send(&StreamDataResponse{Data: data[i] * req.Id})
 
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (b *TestProtonatsService) StreamDataAlt1(req *StreamDataRequest, stream TestService_StreamDataAlt1ProtonatsServer) error {
+	start := int64(req.Id)
+	data := make([]int64, start)
+	for i := range data {
+		data[i] = start - int64(i)
+	}
+
+	for i := range data {
+		err := stream.Send(&StreamDataResponse{Data: data[i]})
 		if err != nil {
 			return err
 		}
@@ -107,23 +149,8 @@ func createTestService() *TestProtonatsService {
 
 var natsURL string
 
-func TestInit(t *testing.T) {
-	natsURL = os.Getenv("NATS_URL")
-	log.SetFlags(log.Lshortfile | log.Lmicroseconds)
-}
-
 func TestError1(t *testing.T) {
-	d := createTestService()
-
 	ctx := context.Background()
-	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
-	assert.Equal(t, nil, err)
-	defer bus.Close()
-
-	svr := NewTestServiceProtonatsServer(bus, d)
-	_, err = svr.SubscribeTestService()
-	assert.Equal(t, nil, err)
-
 	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
@@ -137,31 +164,76 @@ func TestError1(t *testing.T) {
 	assert.Equal(t, "test-error-1", err.Error())
 }
 
-func TestOK1(t *testing.T) {
-	d := createTestService()
+func testOK1(t *testing.T, title string) {
+	log.Println(title)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
-	assert.Equal(t, nil, err)
-	defer bus.Close()
-	svr := NewTestServiceProtonatsServer(bus, d)
-	done, err := svr.SubscribeTestService()
-	assert.Equal(t, nil, err)
 
 	var client *protonats.Bus
-	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
 
 	svc := NewTestServiceProtonatsClient(client)
-	resp, err := svc.GetTestA(ctx, &TestARequest{Input: "OK"})
+	resp, err := svc.GetTestAB(ctx, &TestARequest{Input: title})
 
 	assert.Equal(t, nil, err)
-	assert.Equal(t, "OKOK", resp.Output)
+	assert.Equal(t, "AB"+title, resp.Output)
 
 	cancel()
-	<-done
+}
+
+func TestOK1(t *testing.T) {
+	testOK1(t, "t-ok1")
+}
+
+func TestOKParallel1(t *testing.T) {
+	t.Parallel()
+	log.Println("Parallel 1 -----------")
+	rand.Seed(time.Now().UnixNano())
+
+	v := (rand.Intn(19) + 5)
+	sum := 0
+	for j := 0; j < v; j++ {
+		testOK1(t, fmt.Sprintf("t-ok1-%d/%d", j, v))
+		log.Println(fmt.Sprintf("t-ok1-%d/%d done", j, v))
+		sum++
+	}
+
+	assert.Equal(t, v, sum)
+
+}
+func TestOKParallel2(t *testing.T) {
+	t.Parallel()
+	log.Println("Parallel 2 -----------")
+
+	rand.Seed(time.Now().UnixNano())
+
+	sum := 0
+	v := (rand.Intn(19) + 5)
+	for j := 0; j < v; j++ {
+		testOK1(t, fmt.Sprintf("t-ok2-%d/%d", j, v))
+		log.Println(fmt.Sprintf("t-ok2-%d/%d done", j, v))
+		sum++
+	}
+	assert.Equal(t, v, sum)
+
+}
+func TestOKParallel3(t *testing.T) {
+	t.Parallel()
+	log.Println("Parallel 3 -----------")
+
+	rand.Seed(time.Now().UnixNano())
+	sum := 0
+	v := (rand.Intn(19) + 5)
+	for j := 0; j < v; j++ {
+		testOK1(t, fmt.Sprintf("t-ok3-%d/%d", j, v))
+		log.Println(fmt.Sprintf("t-ok3-%d/%d done", j, v))
+		sum++
+	}
+	assert.Equal(t, v, sum)
+
 }
 
 /*
@@ -219,18 +291,10 @@ func TestOKLoop(t *testing.T) {
 
 func TestClientStreamHappy(t *testing.T) {
 	log.Println("ClientStreamHappy")
-	d := createTestService()
-
 	ctx, cancel := context.WithCancel(context.Background())
-	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
-	assert.Equal(t, nil, err)
-	defer bus.Close()
-	svr := NewTestServiceProtonatsServer(bus, d)
-	done, err := svr.SubscribeTestService()
-	assert.Equal(t, nil, err)
 
 	var client *protonats.Bus
-	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
@@ -251,23 +315,14 @@ func TestClientStreamHappy(t *testing.T) {
 
 	assert.Equal(t, int64(45), resp.Sum)
 	cancel()
-	<-done
 }
 
 func TestClientStreamSad1(t *testing.T) {
 	log.Println("ClietnStreamSad1")
-	d := createTestService()
-
 	ctx, cancel := context.WithCancel(context.Background())
-	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
-	assert.Equal(t, nil, err)
-	defer bus.Close()
-	svr := NewTestServiceProtonatsServer(bus, d)
-	done, err := svr.SubscribeTestService()
-	assert.Equal(t, nil, err)
 
 	var client *protonats.Bus
-	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
@@ -292,30 +347,20 @@ func TestClientStreamSad1(t *testing.T) {
 			break
 		}
 	}
-
 	resp, err := stream.Done()
 
 	assert.NotEqual(t, nil, err)
 
 	assert.Equal(t, true, resp == nil)
 	cancel()
-	<-done
 }
 
 func TestClientStreamSad2(t *testing.T) {
 	log.Println("ClietnStreamSad2")
-	d := createTestService()
-
 	ctx, cancel := context.WithCancel(context.Background())
-	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
-	assert.Equal(t, nil, err)
-	defer bus.Close()
-	svr := NewTestServiceProtonatsServer(bus, d)
-	done, err := svr.SubscribeTestService()
-	assert.Equal(t, nil, err)
 
 	var client *protonats.Bus
-	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
@@ -346,24 +391,16 @@ func TestClientStreamSad2(t *testing.T) {
 
 	assert.Equal(t, true, resp == nil)
 	cancel()
-	<-done
+
 }
 
 func TestServerStreamHappy(t *testing.T) {
 	log.Println("ServerStreamHappy")
 
-	d := createTestService()
-
 	ctx, cancel := context.WithCancel(context.Background())
-	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
-	assert.Equal(t, nil, err)
-	defer bus.Close()
-	svr := NewTestServiceProtonatsServer(bus, d)
-	done, err := svr.SubscribeTestService()
-	assert.Equal(t, nil, err)
 
 	var client *protonats.Bus
-	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
@@ -380,6 +417,7 @@ func TestServerStreamHappy(t *testing.T) {
 	var sum int64
 	for {
 		// Wait for the data to be available from the stream
+
 		data, err := stream.Receive()
 		if count == 10 {
 			assert.Equal(t, io.EOF, err)
@@ -397,24 +435,16 @@ func TestServerStreamHappy(t *testing.T) {
 	assert.Equal(t, 10, count)
 
 	cancel()
-	<-done
+
 }
 
 func TestServerStreamSad1(t *testing.T) {
 	log.Println("ServerStreamSad")
 
-	d := createTestService()
-
 	ctx, cancel := context.WithCancel(context.Background())
-	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
-	assert.Equal(t, nil, err)
-	defer bus.Close()
-	svr := NewTestServiceProtonatsServer(bus, d)
-	done, err := svr.SubscribeTestService()
-	assert.Equal(t, nil, err)
 
 	var client *protonats.Bus
-	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
@@ -451,5 +481,112 @@ func TestServerStreamSad1(t *testing.T) {
 	assert.Equal(t, 8, count)
 
 	cancel()
-	<-done
+}
+
+func getsum(start int64) int64 {
+	data := make([]int64, start)
+	var sum int64
+	for i := range data {
+		data[i] = start - int64(i)
+		sum = sum + data[i]
+	}
+	return sum
+}
+
+func testServerStreamP(t *testing.T, title string, value int) {
+	log.Println(title)
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	var client *protonats.Bus
+	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+
+	defer client.Close()
+
+	svc := NewTestServiceProtonatsClient(client)
+	stream, err := svc.StreamDataAlt1(ctx, &StreamDataRequest{
+		Id: int64(value),
+	})
+
+	assert.Equal(t, nil, err)
+	assert.NotEqual(t, nil, stream)
+
+	count := 0
+	var sum int64
+	for {
+		// Wait for the data to be available from the stream
+		data, err := stream.Receive()
+
+		if err != nil {
+			if err.Error() != "EOF" {
+				assert.Equal(t, nil, err)
+			}
+			break
+		}
+		sum = sum + data.Data
+		count++
+
+	}
+
+	assert.Equal(t, getsum(int64(value)), sum)
+	assert.Equal(t, value, count)
+
+	cancel()
+}
+
+func TestServerStreamParallel1(t *testing.T) {
+
+	t.Parallel()
+	rand.Seed(time.Now().UnixNano())
+
+	num := 10
+	sum := 0
+	for i := 0; i < num; i++ {
+		v := (rand.Intn(50) + 20)
+		testServerStreamP(t, fmt.Sprintf("t1 %d-a [%d]", i, v), v)
+		sum++
+	}
+
+	assert.Equal(t, num, sum)
+}
+
+func TestServerStreamParallel2(t *testing.T) {
+
+	t.Parallel()
+	rand.Seed(time.Now().UnixNano())
+
+	num := 10
+	sum := 0
+	for i := 0; i < num; i++ {
+		v := (rand.Intn(50) + 20)
+		testServerStreamP(t, fmt.Sprintf("t2 %d-a [%d]", i, v), v)
+		sum++
+	}
+
+	assert.Equal(t, num, sum)
+}
+
+func TestServerStreamParallel3(t *testing.T) {
+
+	t.Parallel()
+	rand.Seed(time.Now().UnixNano())
+
+	num := 10
+	sum := 0
+	for i := 0; i < num; i++ {
+		v := (rand.Intn(50) + 20)
+		testServerStreamP(t, fmt.Sprintf("t3 %d-a [%d]", i, v), v)
+		sum++
+	}
+
+	assert.Equal(t, num, sum)
+}
+
+func TestServerStreamP(t *testing.T) {
+	p1 := time.Now().UnixNano()
+	testServerStreamP(t, "Sending 1 million records", 1000*1000)
+	p2 := time.Now().UnixNano()
+	diff := (p2 - p1) / 1000000000
+	log.Println(fmt.Sprintf("%d secs, %d records/sec", diff, 1000000/diff))
 }

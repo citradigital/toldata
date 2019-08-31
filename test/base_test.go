@@ -21,6 +21,15 @@ type TestFixtures struct {
 	Value   string
 	Time    time.Time
 	Counter map[string]int
+	data    int64
+}
+
+func (f *TestFixtures) SetData(data int64) {
+	f.data = data
+}
+
+func (f *TestFixtures) GetData() int64 {
+	return f.data
 }
 
 func (f *TestFixtures) SetCounter(s string) {

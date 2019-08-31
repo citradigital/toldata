@@ -44,6 +44,10 @@ message StreamDataResponse {
 
 service TestService {
     rpc GetTestA(TestARequest) returns (TestAResponse) {}
+    rpc GetTestAB(TestARequest) returns (TestAResponse) {}
+
     rpc FeedData(stream FeedDataRequest) returns (FeedDataResponse) {}
     rpc StreamData(StreamDataRequest) returns (stream StreamDataResponse) {}
+    rpc StreamDataAlt1(StreamDataRequest) returns (stream StreamDataResponse) {}
+
 }

@@ -42,6 +42,14 @@ func (svc *TestServiceGRPC) GetTestA(ctx context.Context, req *TestARequest) (*T
 
 	
 
+func (svc *TestServiceGRPC) GetTestAB(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
+	return svc.Service.GetTestAB(ctx, req)
+}
+
+	
+
+	
+
 	
 
 

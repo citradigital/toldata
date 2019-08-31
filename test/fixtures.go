@@ -23,4 +23,6 @@ type Fixtures interface {
 	GetValue() string
 	SetCounter(s string)
 	GetCounter(s string) int
+	SetData(data int64)
+	GetData() int64
 }

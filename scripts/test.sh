@@ -5,4 +5,4 @@ su -l nobody
 cd /src/test
 env
 echo "Starting test...."
-go test
+go test -test.parallel 4
