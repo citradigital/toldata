@@ -85,8 +85,9 @@ package {{ .PackageName }}
 import (
 	"context"
 	"errors"
-	io "io"
-
+{{ range .Services }}{{ range .Method }}{{ if or .ClientStreaming .ServerStreaming }}
+   io "io"
+{{ end }}{{ end }}{{ end }}
 	"github.com/gogo/protobuf/proto"
 	"github.com/citradigital/protonats"
 	nats "github.com/nats-io/go-nats"
