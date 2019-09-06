@@ -353,6 +353,9 @@ type {{ $ServiceName }}ProtonatsClient_{{ .Name }} struct {
 
 func (client *{{ $ServiceName }}ProtonatsClient_{{ .Name }}) Send(req *{{ .InputType | stripLastDot }}) error {
 	functionName := "{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}_Send_" + client.ID
+	if req == nil {
+		return errors.New("empty-request")
+	}
 	reqRaw, err := proto.Marshal(req)
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, reqRaw)
 	if err != nil {
@@ -527,6 +530,9 @@ func (impl *{{ $ServiceName }}_{{ .Name }}ProtonatsServerImpl) Subscribe(service
 {{ if .ServerStreaming }}
 func (service *{{ $ServiceName }}ProtonatsClient) {{ .Name }}(ctx context.Context, req *{{ .InputType | stripLastDot }}) (*{{ $ServiceName }}ProtonatsClient_{{ .Name }}, error) {
 	functionName := "{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}"
+	if req == nil {
+		return nil, errors.New("empty-request")
+	}
 	reqRaw, err := proto.Marshal(req)	
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 {{ else }}
@@ -569,6 +575,9 @@ func (service *{{ $ServiceName }}ProtonatsClient) {{ .Name }}(ctx context.Contex
 func (service *{{ $ServiceName }}ProtonatsClient) {{ .Name }}(ctx context.Context, req *{{ .InputType | stripLastDot }}) (*{{ .OutputType | stripLastDot }}, error) {
 	functionName := "{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}"
 	
+	if req == nil {
+		return nil, errors.New("empty-request")
+	}
 	reqRaw, err := proto.Marshal(req)
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
