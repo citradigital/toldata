@@ -91,9 +91,11 @@ import (
 	nats "github.com/nats-io/go-nats"
 )
 
-const (
-  EOF = io.EOF
-)
+// Workaround for template problem
+func EOF() error {
+	return io.EOF
+}
+
 {{ $Namespace := .Namespace }}
 {{ range .Services }}{{ $ServiceName := .Name }}
 type {{ .Name }}ProtonatsInterface interface {
