@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/citradigital/protonats"
+	"github.com/citradigital/toldata"
 	"github.com/stretchr/testify/assert"
 	grpc "google.golang.org/grpc"
 	status "google.golang.org/grpc/status"
@@ -26,9 +26,9 @@ func startTestServer(grpcServer *grpc.Server) {
 	}
 
 	ctx := context.Background()
-	api, err := NewTestServiceGRPC(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	api, err := NewTestServiceGRPC(ctx, toldata.ServiceConfiguration{URL: natsURL})
 	if err != nil {
-		log.Fatalln("Failed to create Protonats service")
+		log.Fatalln("Failed to create Toldata service")
 	}
 
 	RegisterTestServiceServer(grpcServer, api)

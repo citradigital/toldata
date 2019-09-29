@@ -23,15 +23,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/citradigital/protonats"
+	"github.com/citradigital/toldata"
 	"github.com/stretchr/testify/assert"
 )
 
-type TestProtonatsService struct {
+type TestToldataService struct {
 	Fixtures Fixtures
 }
 
-func (b *TestProtonatsService) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
+func (b *TestToldataService) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
 	if req.Input == "123456" {
 		return nil, errors.New("test-error-1")
 	}
@@ -48,7 +48,7 @@ func (b *TestProtonatsService) GetTestA(ctx context.Context, req *TestARequest) 
 	return result, nil
 }
 
-func (b *TestProtonatsService) GetTestAB(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
+func (b *TestToldataService) GetTestAB(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
 	if req.Input == "123456" {
 		return nil, errors.New("test-error-1")
 	}
@@ -65,7 +65,7 @@ func (b *TestProtonatsService) GetTestAB(ctx context.Context, req *TestARequest)
 	return result, nil
 }
 
-func (b *TestProtonatsService) FeedData(stream TestService_FeedDataProtonatsServer) {
+func (b *TestToldataService) FeedData(stream TestService_FeedDataToldataServer) {
 	var sum int64
 
 	var data *FeedDataRequest
@@ -99,7 +99,7 @@ func (b *TestProtonatsService) FeedData(stream TestService_FeedDataProtonatsServ
 
 }
 
-func (b *TestProtonatsService) StreamData(req *StreamDataRequest, stream TestService_StreamDataProtonatsServer) error {
+func (b *TestToldataService) StreamData(req *StreamDataRequest, stream TestService_StreamDataToldataServer) error {
 	// We have a set of data which will be multiplied by the req
 	// and stream those numbers down to the client
 	data := [10]int64{10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
@@ -123,7 +123,7 @@ func (b *TestProtonatsService) StreamData(req *StreamDataRequest, stream TestSer
 	return nil
 }
 
-func (b *TestProtonatsService) StreamDataAlt1(req *StreamDataRequest, stream TestService_StreamDataAlt1ProtonatsServer) error {
+func (b *TestToldataService) StreamDataAlt1(req *StreamDataRequest, stream TestService_StreamDataAlt1ToldataServer) error {
 	start := int64(req.Id)
 	data := make([]int64, start)
 	for i := range data {
@@ -139,8 +139,8 @@ func (b *TestProtonatsService) StreamDataAlt1(req *StreamDataRequest, stream Tes
 	return nil
 }
 
-func createTestService() *TestProtonatsService {
-	test := TestProtonatsService{
+func createTestService() *TestToldataService {
+	test := TestToldataService{
 		Fixtures: CreateFixtures(),
 	}
 
@@ -151,12 +151,12 @@ var natsURL string
 
 func TestError1(t *testing.T) {
 	ctx := context.Background()
-	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	client, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
 
-	svc := NewTestServiceProtonatsClient(client)
+	svc := NewTestServiceToldataClient(client)
 
 	_, err = svc.GetTestA(ctx, &TestARequest{Input: "123456"})
 
@@ -169,13 +169,13 @@ func testOK1(t *testing.T, title string) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	var client *protonats.Bus
-	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	var client *toldata.Bus
+	client, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
 
-	svc := NewTestServiceProtonatsClient(client)
+	svc := NewTestServiceToldataClient(client)
 	resp, err := svc.GetTestAB(ctx, &TestARequest{Input: title})
 
 	assert.Equal(t, nil, err)
@@ -241,28 +241,28 @@ func TestOKLoop(t *testing.T) {
 	d := createTestService()
 
 	ctx := context.Background()
-	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL, ID: "bus1"})
+	bus, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL, ID: "bus1"})
 	assert.Equal(t, nil, err)
 	defer bus.Close()
-	svr := NewTestServiceProtonatsServer(bus, d)
+	svr := NewTestServiceToldataServer(bus, d)
 	_, err = svr.SubscribeTestService()
 	assert.Equal(t, nil, err)
 
-	bus2, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL, ID: "bus2"})
+	bus2, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL, ID: "bus2"})
 	assert.Equal(t, nil, err)
 	defer bus2.Close()
-	svr2 := NewTestServiceProtonatsServer(bus2, d)
+	svr2 := NewTestServiceToldataServer(bus2, d)
 	_, err = svr2.SubscribeTestService()
 	assert.Equal(t, nil, err)
 
-	var client *protonats.Bus
-	client, err = protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	var client *toldata.Bus
+	client, err = toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
 
 	max := 100000
-	svc := NewTestServiceProtonatsClient(client)
+	svc := NewTestServiceToldataClient(client)
 
 	t1 := time.Now()
 	for i := 0; i < max; i++ {
@@ -295,13 +295,13 @@ func TestClientStreamHappy(t *testing.T) {
 	log.Println("ClientStreamHappy")
 	ctx, cancel := context.WithCancel(context.Background())
 
-	var client *protonats.Bus
-	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	var client *toldata.Bus
+	client, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
 
-	svc := NewTestServiceProtonatsClient(client)
+	svc := NewTestServiceToldataClient(client)
 	stream, err := svc.FeedData(ctx)
 
 	assert.Equal(t, nil, err)
@@ -323,13 +323,13 @@ func TestClientStreamSad1(t *testing.T) {
 	log.Println("ClietnStreamSad1")
 	ctx, cancel := context.WithCancel(context.Background())
 
-	var client *protonats.Bus
-	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	var client *toldata.Bus
+	client, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
 
-	svc := NewTestServiceProtonatsClient(client)
+	svc := NewTestServiceToldataClient(client)
 	stream, err := svc.FeedData(ctx)
 
 	assert.Equal(t, nil, err)
@@ -361,13 +361,13 @@ func TestClientStreamSad2(t *testing.T) {
 	log.Println("ClietnStreamSad2")
 	ctx, cancel := context.WithCancel(context.Background())
 
-	var client *protonats.Bus
-	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	var client *toldata.Bus
+	client, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
 
-	svc := NewTestServiceProtonatsClient(client)
+	svc := NewTestServiceToldataClient(client)
 	stream, err := svc.FeedData(ctx)
 
 	assert.Equal(t, nil, err)
@@ -401,13 +401,13 @@ func TestServerStreamHappy(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	var client *protonats.Bus
-	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	var client *toldata.Bus
+	client, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
 
-	svc := NewTestServiceProtonatsClient(client)
+	svc := NewTestServiceToldataClient(client)
 	stream, err := svc.StreamData(ctx, &StreamDataRequest{
 		Id: 2,
 	})
@@ -445,13 +445,13 @@ func TestServerStreamSad1(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	var client *protonats.Bus
-	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	var client *toldata.Bus
+	client, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
 
-	svc := NewTestServiceProtonatsClient(client)
+	svc := NewTestServiceToldataClient(client)
 	stream, err := svc.StreamData(ctx, &StreamDataRequest{
 		Id: 2,
 	})
@@ -500,13 +500,13 @@ func testServerStreamP(t *testing.T, title string, value int) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	var client *protonats.Bus
-	client, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	var client *toldata.Bus
+	client, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
 	assert.Equal(t, nil, err)
 
 	defer client.Close()
 
-	svc := NewTestServiceProtonatsClient(client)
+	svc := NewTestServiceToldataClient(client)
 	stream, err := svc.StreamDataAlt1(ctx, &StreamDataRequest{
 		Id: int64(value),
 	})

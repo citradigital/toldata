@@ -13,6 +13,6 @@
 
 FROM herpiko/protoc
 
-COPY build/protoc-gen-protonats /usr/bin
+COPY build/protoc-gen-toldata /usr/bin
 
 ENTRYPOINT ["/usr/bin/protoc", "-I/protobuf"]
