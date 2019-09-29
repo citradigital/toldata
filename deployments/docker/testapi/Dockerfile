@@ -24,7 +24,7 @@ RUN apk add curl git gcc musl-dev bash jq
 RUN mkdir -p ${WORKDIR}/${COMPONENT}
 WORKDIR ${WORKDIR}
 COPY *.go ${WORKDIR}/${COMPONENT}/
-RUN go mod init protonats
+RUN go mod init toldata
 COPY configs/config.json /config.json
 COPY deployments/docker/testapi/start.sh /
 RUN chmod +x /start.sh
