@@ -4,9 +4,15 @@
 package test
 
 import (
+	"io"
 	"github.com/citradigital/protonats"
 	context "golang.org/x/net/context"
 )
+
+// Workaround for template problem
+func _eof_grpc() error {
+	return io.EOF
+}
 
 
 type TestServiceGRPC struct {
@@ -48,9 +54,101 @@ func (svc *TestServiceGRPC) GetTestAB(ctx context.Context, req *TestARequest) (*
 
 	
 
-	
+
+func (svc *TestServiceGRPC) FeedData(stream TestService_FeedDataServer) error {
+	svrStream, err := svc.Service.FeedData(stream.Context())
+	if err != nil {
+		return err
+	}
+
+	for {
+		isEOF := false
+		data, err := stream.Recv()
+		if err != nil {
+			if err == io.EOF {
+				isEOF = true
+			} else {
+				return err
+			}
+		}
+
+		if data != nil {
+			err = svrStream.Send(data)
+			if err != nil {
+				return err
+			}
+		}
+		if isEOF {
+			break
+		}
+	}
+
+	resp, err := svrStream.Done()
+	if err != nil {
+		return err
+	}
+	err = stream.SendAndClose(resp)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+
 
 	
+
+
+
+func (svc *TestServiceGRPC) StreamData(req *StreamDataRequest, stream TestService_StreamDataServer) error {
+	svrStream, err := svc.Service.StreamData(stream.Context(), req)
+	if err != nil {
+		return err
+	}
+
+	for {
+		data, err := svrStream.Receive()
+
+		if err != nil {
+			return err
+		}
+		err = stream.Send(data)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+
+	
+
+
+
+func (svc *TestServiceGRPC) StreamDataAlt1(req *StreamDataRequest, stream TestService_StreamDataAlt1Server) error {
+	svrStream, err := svc.Service.StreamDataAlt1(stream.Context(), req)
+	if err != nil {
+		return err
+	}
+
+	for {
+		data, err := svrStream.Receive()
+
+		if err != nil {
+			return err
+		}
+		err = stream.Send(data)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 
 
 
