@@ -37,9 +37,15 @@ const (
 package {{ .PackageName }}
 
 import (
+	"io"
 	"github.com/citradigital/protonats"
 	context "golang.org/x/net/context"
 )
+
+// Workaround for template problem
+func _eof_grpc() error {
+	return io.EOF
+}
 
 {{ range .Services }}{{ $ServiceName := .Name }}
 type {{ $ServiceName }}GRPC struct {
@@ -68,7 +74,72 @@ func (svc *{{ $ServiceName }}GRPC) Close() {
 }
 
 {{ range .Method }}	
-{{ if or .ClientStreaming .ServerStreaming }}{{ else }}
+{{ if or .ClientStreaming .ServerStreaming }}
+{{ if .ClientStreaming }}
+func (svc *{{ $ServiceName }}GRPC) {{ .Name }}(stream {{ $ServiceName }}_{{ .Name }}Server) error {
+	svrStream, err := svc.Service.{{ .Name }}(stream.Context())
+	if err != nil {
+		return err
+	}
+
+	for {
+		isEOF := false
+		data, err := stream.Recv()
+		if err != nil {
+			if err == io.EOF {
+				isEOF = true
+			} else {
+				return err
+			}
+		}
+
+		if data != nil {
+			err = svrStream.Send(data)
+			if err != nil {
+				return err
+			}
+		}
+		if isEOF {
+			break
+		}
+	}
+
+	resp, err := svrStream.Done()
+	if err != nil {
+		return err
+	}
+	err = stream.SendAndClose(resp)
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+{{ end }}
+{{ if .ServerStreaming }}
+func (svc *{{ $ServiceName }}GRPC) {{ .Name }}(req *{{ .InputType | stripLastDot }}, stream {{ $ServiceName }}_{{ .Name }}Server) error {
+	svrStream, err := svc.Service.{{ .Name }}(stream.Context(), req)
+	if err != nil {
+		return err
+	}
+
+	for {
+		data, err := svrStream.Receive()
+
+		if err != nil {
+			return err
+		}
+		err = stream.Send(data)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+{{ end }}
+{{ else }}
 func (svc *{{ $ServiceName }}GRPC) {{ .Name }}(ctx context.Context, req *{{ .InputType | stripLastDot }}) (*{{ .OutputType | stripLastDot }}, error) {
 	return svc.Service.{{ .Name }}(ctx, req)
 }
@@ -92,7 +163,7 @@ import (
 )
 
 // Workaround for template problem
-func EOF() error {
+func _eof() error {
 	return io.EOF
 }
 

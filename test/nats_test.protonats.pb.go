@@ -2,28 +2,48 @@
 // package: cdl.protonats
 // source: nats_test.proto
 package test
-
 import (
 	"context"
 	"errors"
-	io "io"
-	"log"
-
-	"github.com/citradigital/protonats"
+   io "io"
 	"github.com/gogo/protobuf/proto"
+	"github.com/citradigital/protonats"
 	nats "github.com/nats-io/go-nats"
 )
 
+// Workaround for template problem
+func _eof() error {
+	return io.EOF
+}
+
+
+
 type TestServiceProtonatsInterface interface {
-	GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error)
-
-	GetTestAB(ctx context.Context, req *TestARequest) (*TestAResponse, error)
-
-	FeedData(stream TestService_FeedDataProtonatsServer)
-
-	StreamData(req *StreamDataRequest, stream TestService_StreamDataProtonatsServer) error
-
-	StreamDataAlt1(req *StreamDataRequest, stream TestService_StreamDataAlt1ProtonatsServer) error
+	
+	
+		GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error)
+	
+	
+		GetTestAB(ctx context.Context, req *TestARequest) (*TestAResponse, error)
+	
+	
+		
+			FeedData(stream TestService_FeedDataProtonatsServer)
+		
+	
+	
+	
+		
+		StreamData(req *StreamDataRequest, stream TestService_StreamDataProtonatsServer) error
+		
+	
+	
+	
+		
+		StreamDataAlt1(req *StreamDataRequest, stream TestService_StreamDataAlt1ProtonatsServer) error
+		
+	
+	
 }
 
 type TestServiceProtonatsClient struct {
@@ -31,23 +51,31 @@ type TestServiceProtonatsClient struct {
 }
 
 type TestServiceProtonatsServer struct {
-	Bus     *protonats.Bus
+	Bus *protonats.Bus
 	Service TestServiceProtonatsInterface
 }
 
-func NewTestServiceProtonatsClient(bus *protonats.Bus) *TestServiceProtonatsClient {
-	s := &TestServiceProtonatsClient{Bus: bus}
+func NewTestServiceProtonatsClient(bus *protonats.Bus) * TestServiceProtonatsClient {
+	s := &TestServiceProtonatsClient{ Bus: bus }
 	return s
 }
 
-func NewTestServiceProtonatsServer(bus *protonats.Bus, service TestServiceProtonatsInterface) *TestServiceProtonatsServer {
-	s := &TestServiceProtonatsServer{Bus: bus, Service: service}
+func NewTestServiceProtonatsServer(bus *protonats.Bus, service TestServiceProtonatsInterface) * TestServiceProtonatsServer {
+	s := &TestServiceProtonatsServer{ Bus: bus, Service: service }
 	return s
 }
+
+
+	
+
+
 
 func (service *TestServiceProtonatsClient) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
 	functionName := "cdl.protonats/TestService/GetTestA"
-
+	
+	if req == nil {
+		return nil, errors.New("empty-request")
+	}
 	reqRaw, err := proto.Marshal(req)
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
@@ -73,10 +101,19 @@ func (service *TestServiceProtonatsClient) GetTestA(ctx context.Context, req *Te
 		}
 	}
 }
+
+
+
+	
+
+
 
 func (service *TestServiceProtonatsClient) GetTestAB(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
 	functionName := "cdl.protonats/TestService/GetTestAB"
-
+	
+	if req == nil {
+		return nil, errors.New("empty-request")
+	}
 	reqRaw, err := proto.Marshal(req)
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
@@ -103,13 +140,22 @@ func (service *TestServiceProtonatsClient) GetTestAB(ctx context.Context, req *T
 	}
 }
 
+
+
+	
+
+
 type TestService_FeedDataProtonatsServer interface {
+	
 	Receive() (*FeedDataRequest, error)
 	OnData(*FeedDataRequest) error
 	Done(resp *FeedDataResponse) error
+	
 
 	GetResponse() (*FeedDataResponse, error)
 
+	
+	
 	TriggerEOF()
 	Error(err error)
 	OnExit(func())
@@ -117,27 +163,36 @@ type TestService_FeedDataProtonatsServer interface {
 }
 
 type TestService_FeedDataProtonatsServerImpl struct {
-	request         chan *FeedDataRequest
+	
+	
+
+	
+
+	request   chan *FeedDataRequest
 	isRequestClosed bool
 
 	response chan *FeedDataResponse
-
+	
 	cancel chan struct{}
 	eof    chan struct{}
 	err    chan error
 	done   chan struct{}
 
-	isEOF      bool
-	isCanceled bool
+	isEOF        bool
+	isCanceled   bool
 
-	streamErr error
+	streamErr 	error
 
 	Context context.Context
+	
 }
 
 func CreateTestService_FeedDataProtonatsServerImpl(ctx context.Context) *TestService_FeedDataProtonatsServerImpl {
 	t := &TestService_FeedDataProtonatsServerImpl{}
-
+	
+	
+	
+	
 	t.Context = ctx
 	t.request = make(chan *FeedDataRequest)
 	t.response = make(chan *FeedDataResponse)
@@ -170,6 +225,8 @@ func (impl *TestService_FeedDataProtonatsServerImpl) TriggerEOF() {
 		impl.isEOF = true
 	}
 }
+
+
 
 func (impl *TestService_FeedDataProtonatsServerImpl) Receive() (*FeedDataRequest, error) {
 
@@ -221,6 +278,9 @@ func (impl *TestService_FeedDataProtonatsServerImpl) Done(resp *FeedDataResponse
 	}
 }
 
+
+
+
 func (impl *TestService_FeedDataProtonatsServerImpl) GetResponse() (*FeedDataResponse, error) {
 	if impl.streamErr != nil {
 		return nil, impl.streamErr
@@ -228,18 +288,25 @@ func (impl *TestService_FeedDataProtonatsServerImpl) GetResponse() (*FeedDataRes
 
 	select {
 	case err := <-impl.err:
-
+		
+		
 		return nil, err
 
 	case <-impl.cancel:
-
+		
 		return nil, errors.New("canceled")
 
 	case response := <-impl.response:
 		return response, nil
 
+		
 	}
 }
+
+
+
+
+
 
 func (impl *TestService_FeedDataProtonatsServerImpl) Cancel() {
 	if impl.isCanceled == false {
@@ -247,6 +314,7 @@ func (impl *TestService_FeedDataProtonatsServerImpl) Cancel() {
 		impl.isCanceled = true
 	}
 }
+
 
 func (impl *TestService_FeedDataProtonatsServerImpl) Error(err error) {
 	impl.err <- err
@@ -259,8 +327,13 @@ type TestServiceProtonatsClient_FeedData struct {
 	ID      string
 }
 
+
+
 func (client *TestServiceProtonatsClient_FeedData) Send(req *FeedDataRequest) error {
 	functionName := "cdl.protonats/TestService/FeedData_Send_" + client.ID
+	if req == nil {
+		return errors.New("empty-request")
+	}
 	reqRaw, err := proto.Marshal(req)
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, reqRaw)
 	if err != nil {
@@ -280,6 +353,10 @@ func (client *TestServiceProtonatsClient_FeedData) Send(req *FeedDataRequest) er
 		}
 	}
 }
+
+
+
+
 
 func (client *TestServiceProtonatsClient_FeedData) Done() (*FeedDataResponse, error) {
 	functionName := "cdl.protonats/TestService/FeedData_Done_" + client.ID
@@ -315,6 +392,7 @@ func (impl *TestService_FeedDataProtonatsServerImpl) Subscribe(service *TestServ
 	var subscriptions []*nats.Subscription
 	var err error
 
+	
 	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/FeedData_Send_"+id, "cdl.protonats/TestService", func(m *nats.Msg) {
 		var input FeedDataRequest
 		err := proto.Unmarshal(m.Data, &input)
@@ -359,19 +437,26 @@ func (impl *TestService_FeedDataProtonatsServerImpl) Subscribe(service *TestServ
 
 	subscriptions = append(subscriptions, sub)
 
+	
+
+	
+
+
 	impl.OnExit(func() {
-		for i := range subscriptions {
-			subscriptions[i].Unsubscribe()
-		}
+			for i := range subscriptions {
+				subscriptions[i].Unsubscribe()
+			}
 	})
 
 	return err
 }
 
+
 func (service *TestServiceProtonatsClient) FeedData(ctx context.Context) (*TestServiceProtonatsClient_FeedData, error) {
 	functionName := "cdl.protonats/TestService/FeedData"
-
+	
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, nil)
+
 
 	if err != nil {
 		return nil, err
@@ -401,11 +486,20 @@ func (service *TestServiceProtonatsClient) FeedData(ctx context.Context) (*TestS
 	}
 }
 
+
+
+	
+
+
 type TestService_StreamDataProtonatsServer interface {
+	
+
 	GetResponse() (*StreamDataResponse, error)
 
+	
 	Send(*StreamDataResponse) error
-
+	
+	
 	TriggerEOF()
 	Error(err error)
 	OnExit(func())
@@ -413,27 +507,36 @@ type TestService_StreamDataProtonatsServer interface {
 }
 
 type TestService_StreamDataProtonatsServerImpl struct {
-	request         chan *StreamDataRequest
+	
+
+	
+	
+
+	request   chan *StreamDataRequest
 	isRequestClosed bool
 
 	response chan *StreamDataResponse
-
+	
 	cancel chan struct{}
 	eof    chan struct{}
 	err    chan error
 	done   chan struct{}
 
-	isEOF      bool
-	isCanceled bool
+	isEOF        bool
+	isCanceled   bool
 
-	streamErr error
+	streamErr 	error
 
 	Context context.Context
+	
 }
 
 func CreateTestService_StreamDataProtonatsServerImpl(ctx context.Context) *TestService_StreamDataProtonatsServerImpl {
 	t := &TestService_StreamDataProtonatsServerImpl{}
-
+	
+	
+	
+	
 	t.Context = ctx
 	t.request = make(chan *StreamDataRequest)
 	t.response = make(chan *StreamDataResponse)
@@ -467,6 +570,8 @@ func (impl *TestService_StreamDataProtonatsServerImpl) TriggerEOF() {
 	}
 }
 
+
+
 func (impl *TestService_StreamDataProtonatsServerImpl) GetResponse() (*StreamDataResponse, error) {
 	if impl.streamErr != nil {
 		return nil, impl.streamErr
@@ -474,26 +579,30 @@ func (impl *TestService_StreamDataProtonatsServerImpl) GetResponse() (*StreamDat
 
 	select {
 	case err := <-impl.err:
-
+		
 		impl.Exit()
-
+		
+		
 		return nil, err
 
 	case <-impl.cancel:
-
+		
 		impl.Exit()
-
+		
 		return nil, errors.New("canceled")
 
 	case response := <-impl.response:
 		return response, nil
 
+		
 	case <-impl.eof:
 		impl.Exit()
 		return nil, io.EOF
-
+		
 	}
 }
+
+
 
 func (impl *TestService_StreamDataProtonatsServerImpl) Send(req *StreamDataResponse) error {
 
@@ -518,12 +627,17 @@ func (impl *TestService_StreamDataProtonatsServerImpl) Send(req *StreamDataRespo
 	}
 }
 
+
+
+
+
 func (impl *TestService_StreamDataProtonatsServerImpl) Cancel() {
 	if impl.isCanceled == false {
 		close(impl.cancel)
 		impl.isCanceled = true
 	}
 }
+
 
 func (impl *TestService_StreamDataProtonatsServerImpl) Error(err error) {
 	impl.err <- err
@@ -536,9 +650,12 @@ type TestServiceProtonatsClient_StreamData struct {
 	ID      string
 }
 
+
+
+
 func (client *TestServiceProtonatsClient_StreamData) Receive() (*StreamDataResponse, error) {
 	functionName := "cdl.protonats/TestService/StreamData_Receive_" + client.ID
-
+	
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
 	if err != nil {
 		return nil, err
@@ -562,6 +679,8 @@ func (client *TestServiceProtonatsClient_StreamData) Receive() (*StreamDataRespo
 		}
 	}
 }
+
+
 
 func (client *TestServiceProtonatsClient_StreamData) Done() (*StreamDataResponse, error) {
 	functionName := "cdl.protonats/TestService/StreamData_Done_" + client.ID
@@ -597,6 +716,9 @@ func (impl *TestService_StreamDataProtonatsServerImpl) Subscribe(service *TestSe
 	var subscriptions []*nats.Subscription
 	var err error
 
+	
+
+	
 	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/StreamData_Receive_"+id, "cdl.protonats/TestService", func(m *nats.Msg) {
 		var input StreamDataRequest
 		err := proto.Unmarshal(m.Data, &input)
@@ -622,19 +744,25 @@ func (impl *TestService_StreamDataProtonatsServerImpl) Subscribe(service *TestSe
 	})
 
 	subscriptions = append(subscriptions, sub)
+	
+
 
 	impl.OnExit(func() {
-		for i := range subscriptions {
-			subscriptions[i].Unsubscribe()
-		}
+			for i := range subscriptions {
+				subscriptions[i].Unsubscribe()
+			}
 	})
 
 	return err
 }
 
+
 func (service *TestServiceProtonatsClient) StreamData(ctx context.Context, req *StreamDataRequest) (*TestServiceProtonatsClient_StreamData, error) {
 	functionName := "cdl.protonats/TestService/StreamData"
-	reqRaw, err := proto.Marshal(req)
+	if req == nil {
+		return nil, errors.New("empty-request")
+	}
+	reqRaw, err := proto.Marshal(req)	
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 
 	if err != nil {
@@ -665,11 +793,20 @@ func (service *TestServiceProtonatsClient) StreamData(ctx context.Context, req *
 	}
 }
 
+
+
+	
+
+
 type TestService_StreamDataAlt1ProtonatsServer interface {
+	
+
 	GetResponse() (*StreamDataResponse, error)
 
+	
 	Send(*StreamDataResponse) error
-
+	
+	
 	TriggerEOF()
 	Error(err error)
 	OnExit(func())
@@ -677,27 +814,36 @@ type TestService_StreamDataAlt1ProtonatsServer interface {
 }
 
 type TestService_StreamDataAlt1ProtonatsServerImpl struct {
-	request         chan *StreamDataRequest
+	
+
+	
+	
+
+	request   chan *StreamDataRequest
 	isRequestClosed bool
 
 	response chan *StreamDataResponse
-
+	
 	cancel chan struct{}
 	eof    chan struct{}
 	err    chan error
 	done   chan struct{}
 
-	isEOF      bool
-	isCanceled bool
+	isEOF        bool
+	isCanceled   bool
 
-	streamErr error
+	streamErr 	error
 
 	Context context.Context
+	
 }
 
 func CreateTestService_StreamDataAlt1ProtonatsServerImpl(ctx context.Context) *TestService_StreamDataAlt1ProtonatsServerImpl {
 	t := &TestService_StreamDataAlt1ProtonatsServerImpl{}
-
+	
+	
+	
+	
 	t.Context = ctx
 	t.request = make(chan *StreamDataRequest)
 	t.response = make(chan *StreamDataResponse)
@@ -731,6 +877,8 @@ func (impl *TestService_StreamDataAlt1ProtonatsServerImpl) TriggerEOF() {
 	}
 }
 
+
+
 func (impl *TestService_StreamDataAlt1ProtonatsServerImpl) GetResponse() (*StreamDataResponse, error) {
 	if impl.streamErr != nil {
 		return nil, impl.streamErr
@@ -738,26 +886,30 @@ func (impl *TestService_StreamDataAlt1ProtonatsServerImpl) GetResponse() (*Strea
 
 	select {
 	case err := <-impl.err:
-
+		
 		impl.Exit()
-
+		
+		
 		return nil, err
 
 	case <-impl.cancel:
-
+		
 		impl.Exit()
-
+		
 		return nil, errors.New("canceled")
 
 	case response := <-impl.response:
 		return response, nil
 
+		
 	case <-impl.eof:
 		impl.Exit()
 		return nil, io.EOF
-
+		
 	}
 }
+
+
 
 func (impl *TestService_StreamDataAlt1ProtonatsServerImpl) Send(req *StreamDataResponse) error {
 
@@ -782,12 +934,17 @@ func (impl *TestService_StreamDataAlt1ProtonatsServerImpl) Send(req *StreamDataR
 	}
 }
 
+
+
+
+
 func (impl *TestService_StreamDataAlt1ProtonatsServerImpl) Cancel() {
 	if impl.isCanceled == false {
 		close(impl.cancel)
 		impl.isCanceled = true
 	}
 }
+
 
 func (impl *TestService_StreamDataAlt1ProtonatsServerImpl) Error(err error) {
 	impl.err <- err
@@ -800,9 +957,12 @@ type TestServiceProtonatsClient_StreamDataAlt1 struct {
 	ID      string
 }
 
+
+
+
 func (client *TestServiceProtonatsClient_StreamDataAlt1) Receive() (*StreamDataResponse, error) {
 	functionName := "cdl.protonats/TestService/StreamDataAlt1_Receive_" + client.ID
-
+	
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
 	if err != nil {
 		return nil, err
@@ -826,6 +986,8 @@ func (client *TestServiceProtonatsClient_StreamDataAlt1) Receive() (*StreamDataR
 		}
 	}
 }
+
+
 
 func (client *TestServiceProtonatsClient_StreamDataAlt1) Done() (*StreamDataResponse, error) {
 	functionName := "cdl.protonats/TestService/StreamDataAlt1_Done_" + client.ID
@@ -861,6 +1023,9 @@ func (impl *TestService_StreamDataAlt1ProtonatsServerImpl) Subscribe(service *Te
 	var subscriptions []*nats.Subscription
 	var err error
 
+	
+
+	
 	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/StreamDataAlt1_Receive_"+id, "cdl.protonats/TestService", func(m *nats.Msg) {
 		var input StreamDataRequest
 		err := proto.Unmarshal(m.Data, &input)
@@ -886,19 +1051,25 @@ func (impl *TestService_StreamDataAlt1ProtonatsServerImpl) Subscribe(service *Te
 	})
 
 	subscriptions = append(subscriptions, sub)
+	
+
 
 	impl.OnExit(func() {
-		for i := range subscriptions {
-			subscriptions[i].Unsubscribe()
-		}
+			for i := range subscriptions {
+				subscriptions[i].Unsubscribe()
+			}
 	})
 
 	return err
 }
 
+
 func (service *TestServiceProtonatsClient) StreamDataAlt1(ctx context.Context, req *StreamDataRequest) (*TestServiceProtonatsClient_StreamDataAlt1, error) {
 	functionName := "cdl.protonats/TestService/StreamDataAlt1"
-	reqRaw, err := proto.Marshal(req)
+	if req == nil {
+		return nil, errors.New("empty-request")
+	}
+	reqRaw, err := proto.Marshal(req)	
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 
 	if err != nil {
@@ -929,15 +1100,24 @@ func (service *TestServiceProtonatsClient) StreamDataAlt1(ctx context.Context, r
 	}
 }
 
+
+
+
+
+
+
+
 func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct{}, error) {
 	bus := service.Bus
-
+	
 	var err error
 	var sub *nats.Subscription
 	var subscriptions []*nats.Subscription
-
+	
 	done := make(chan struct{})
-
+	
+		
+	
 	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/GetTestA", "cdl.protonats/TestService", func(m *nats.Msg) {
 		var input TestARequest
 		err := proto.Unmarshal(m.Data, &input)
@@ -947,7 +1127,7 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 		}
 		result, err := service.Service.GetTestA(bus.Context, &input)
 
-		if m.Reply != "" {
+		if m.Reply != ""  {
 			if err != nil {
 				bus.HandleError(m.Reply, err)
 			} else {
@@ -964,7 +1144,12 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 	})
 
 	subscriptions = append(subscriptions, sub)
+	
 
+
+
+		
+	
 	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/GetTestAB", "cdl.protonats/TestService", func(m *nats.Msg) {
 		var input TestARequest
 		err := proto.Unmarshal(m.Data, &input)
@@ -974,7 +1159,7 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 		}
 		result, err := service.Service.GetTestAB(bus.Context, &input)
 
-		if m.Reply != "" {
+		if m.Reply != ""  {
 			if err != nil {
 				bus.HandleError(m.Reply, err)
 			} else {
@@ -986,20 +1171,22 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 					bus.Connection.Publish(m.Reply, append(zero, raw...))
 				}
 			}
-		} else {
-			log.Println("reply empty")
 		}
 
 	})
-	if err != nil {
-		log.Println(err)
-	}
 
 	subscriptions = append(subscriptions, sub)
+	
 
+
+
+		
+	
 	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/FeedData", "cdl.protonats/TestService", func(m *nats.Msg) {
 		stream := CreateTestService_FeedDataProtonatsServerImpl(bus.Context)
 
+		
+
 		stream.Subscribe(service, m.Reply)
 
 		raw, err := proto.Marshal(&protonats.StreamInfo{
@@ -1011,15 +1198,23 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 			zero := []byte{0}
 			bus.Connection.Publish(m.Reply, append(zero, raw...))
 		}
-
+		
 		service.Service.FeedData(stream)
-
+		
 	})
 
 	subscriptions = append(subscriptions, sub)
 
+	
+
+
+
+		
+	
 	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/StreamData", "cdl.protonats/TestService", func(m *nats.Msg) {
 		stream := CreateTestService_StreamDataProtonatsServerImpl(bus.Context)
+
+		
 
 		stream.Subscribe(service, m.Reply)
 
@@ -1032,7 +1227,7 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 			zero := []byte{0}
 			bus.Connection.Publish(m.Reply, append(zero, raw...))
 		}
-
+		
 		var input StreamDataRequest
 		err = proto.Unmarshal(m.Data, &input)
 		if err != nil {
@@ -1046,16 +1241,24 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 			return
 		} else {
 			zero := []byte{0}
-			bus.Connection.Publish(m.Reply, zero)
+			bus.Connection.Publish(m.Reply, zero)	
 		}
 		stream.TriggerEOF()
-
+		
 	})
 
 	subscriptions = append(subscriptions, sub)
 
+	
+
+
+
+		
+	
 	sub, err = bus.Connection.QueueSubscribe("cdl.protonats/TestService/StreamDataAlt1", "cdl.protonats/TestService", func(m *nats.Msg) {
 		stream := CreateTestService_StreamDataAlt1ProtonatsServerImpl(bus.Context)
+
+		
 
 		stream.Subscribe(service, m.Reply)
 
@@ -1068,7 +1271,7 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 			zero := []byte{0}
 			bus.Connection.Publish(m.Reply, append(zero, raw...))
 		}
-
+		
 		var input StreamDataRequest
 		err = proto.Unmarshal(m.Data, &input)
 		if err != nil {
@@ -1082,13 +1285,20 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 			return
 		} else {
 			zero := []byte{0}
-			bus.Connection.Publish(m.Reply, zero)
+			bus.Connection.Publish(m.Reply, zero)	
 		}
 		stream.TriggerEOF()
-
+		
 	})
 
 	subscriptions = append(subscriptions, sub)
+
+	
+
+
+
+	
+
 
 	go func() {
 		defer close(done)
@@ -1103,3 +1313,5 @@ func (service *TestServiceProtonatsServer) SubscribeTestService() (<-chan struct
 
 	return done, err
 }
+
+

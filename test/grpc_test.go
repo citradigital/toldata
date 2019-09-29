@@ -1,8 +1,8 @@
 package test
 
-/*
 import (
 	"context"
+	io "io"
 	"log"
 	"net"
 	"testing"
@@ -11,6 +11,7 @@ import (
 	"github.com/citradigital/protonats"
 	"github.com/stretchr/testify/assert"
 	grpc "google.golang.org/grpc"
+	status "google.golang.org/grpc/status"
 )
 
 var grpcServer *grpc.Server
@@ -62,20 +63,56 @@ func TestGRPC1(t *testing.T) {
 
 	ctx := context.Background()
 
-	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
-	assert.Equal(t, nil, err)
-	defer bus.Close()
-
-	d := createTestService()
-
-	svr := NewTestServiceProtonatsServer(bus, d)
-	_, err = svr.SubscribeTestService()
-	assert.Equal(t, nil, err)
-
 	res, err := grpcClient.GetTestA(ctx, req)
 
 	assert.Equal(t, nil, err)
 	assert.NotEqual(t, nil, res)
 	assert.Equal(t, "OKGRPC", res.Output)
 }
-*/
+
+func TestGRPCStreamDataHappy(t *testing.T) {
+	ctx := context.Background()
+	req := StreamDataRequest{Id: 2}
+	stream, err := grpcClient.StreamData(ctx, &req)
+
+	data := [10]int64{10, 9, 8, 7, 6, 5, 4, 3, 2, 1}
+
+	assert.Equal(t, nil, err)
+	i := 0
+	for {
+		ret, err := stream.Recv()
+		if err != nil {
+			st, ok := status.FromError(err)
+			if ok {
+				if st.Err() == io.EOF {
+					break
+				}
+			}
+			break
+		}
+		assert.Equal(t, nil, err)
+		assert.Equal(t, data[i]*req.Id, ret.Data)
+		i = i + 1
+	}
+
+	assert.Equal(t, 10, i)
+}
+
+func TestGRPCFeedDataHappy(t *testing.T) {
+	ctx := context.Background()
+	stream, err := grpcClient.FeedData(ctx)
+	assert.Equal(t, nil, err)
+
+	for i := 0; i < 10; i++ {
+		_ = stream.Send(&FeedDataRequest{
+			Data: int64(i),
+		})
+	}
+
+	resp, err := stream.CloseAndRecv()
+
+	assert.Equal(t, nil, err)
+	assert.NotEqual(t, nil, resp)
+	assert.Equal(t, int64(45), resp.Sum)
+
+}
