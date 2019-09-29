@@ -6,10 +6,10 @@ import (
 	"os"
 	"testing"
 
-	"github.com/citradigital/protonats"
+	"github.com/citradigital/toldata"
 )
 
-var d *TestProtonatsService
+var d *TestToldataService
 
 func TestMain(m *testing.M) {
 	natsURL = os.Getenv("NATS_URL")
@@ -18,13 +18,13 @@ func TestMain(m *testing.M) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	log.Println("init")
-	bus, err := protonats.NewBus(ctx, protonats.ServiceConfiguration{URL: natsURL})
+	bus, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
 
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer bus.Close()
-	getab := NewTestServiceProtonatsServer(bus, d)
+	getab := NewTestServiceToldataServer(bus, d)
 	done, err := getab.SubscribeTestService()
 
 	code := m.Run()

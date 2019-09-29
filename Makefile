@@ -65,19 +65,19 @@ gen_clean:
 	rm -f *.pb.go
 
 gen: 
-	docker run -v $(PREFIX):/gen -v $(PREFIX)/api:/api citradigital/protonats -I /api/ /api/nats.proto --gogofaster_out=/gen
-	docker run -v $(PREFIX)/test:/gen -v $(PREFIX)/api:/api citradigital/protonats -I /api/ /api/nats_test.proto --protonats_out=grpc:/gen --gogofaster_out=plugins=grpc:/gen
+	docker run -v $(PREFIX):/gen -v $(PREFIX)/api:/api citradigital/toldata -I /api/ /api/toldata.proto --gogofaster_out=/gen
+	docker run -v $(PREFIX)/test:/gen -v $(PREFIX)/api:/api citradigital/toldata -I /api/ /api/toldata_test.proto --toldata_out=grpc:/gen --gogofaster_out=plugins=grpc:/gen
 
 generator:
-	go build -o protonats-gen cmd/protonats-gen/main.go
+	go build -o toldata-gen cmd/toldata-gen/main.go
 
 build-generator:
 	mkdir -p tmp
-	cp -a cmd/protonats-gen tmp
+	cp -a cmd/toldata-gen tmp
 	docker run -v $(CACHE_PREFIX)/cache/go:/go/pkg/mod \
 		-v $(CACHE_PREFIX)/cache/apk:/etc/apk/cache \
 		-v $(PREFIX)/deployments/docker/build:/build \
-		-v $(PREFIX)/tmp/protonats-gen:/src \
+		-v $(PREFIX)/tmp/toldata-gen:/src \
 		-v $(PREFIX)/deployments/docker/build-generator/build.sh:/build.sh \
 		golang:1.12-alpine /build.sh
-	docker build -t citradigital/protonats -f deployments/docker/build-generator/Dockerfile deployments/docker/
+	docker build -t citradigital/toldata -f deployments/docker/build-generator/Dockerfile deployments/docker/

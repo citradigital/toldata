@@ -13,8 +13,8 @@
 
 syntax = "proto3";
 
-package cdl.protonats;
-option go_package = "protonats";
+package cdl.toldata;
+option go_package = "toldata";
 
 message ErrorMessage {
     string error_message = 1;
