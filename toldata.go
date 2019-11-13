@@ -22,6 +22,7 @@ import (
 	nats "github.com/nats-io/go-nats"
 )
 
+
 type ServiceConfiguration struct {
 	URL string
 	ID  string

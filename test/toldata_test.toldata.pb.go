@@ -19,6 +19,8 @@ func _eof() error {
 
 
 type TestServiceToldataInterface interface {
+	ToldataHealthCheck(ctx context.Context, req *toldata.Empty) (*toldata.ToldataHealthCheckInfo, error)
+
 	
 	
 		GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error)
