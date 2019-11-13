@@ -25,3 +25,9 @@ message ErrorMessage {
 message StreamInfo {
     string ID = 1;
 }
+
+message ToldataHealthCheckInfo {
+    string data = 1;
+}
+
+message Empty {}

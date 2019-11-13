@@ -170,6 +170,8 @@ func _eof() error {
 {{ $Namespace := .Namespace }}
 {{ range .Services }}{{ $ServiceName := .Name }}
 type {{ .Name }}ToldataInterface interface {
+	ToldataHealthCheck(ctx context.Context, req *toldata.Empty) (*toldata.ToldataHealthCheckInfo, error)
+
 	{{ range .Method }}
 	{{ if or .ClientStreaming .ServerStreaming }}
 		{{ if .ServerStreaming }}
