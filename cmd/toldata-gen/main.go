@@ -203,6 +203,36 @@ func New{{ $ServiceName }}ToldataServer(bus *toldata.Bus, service {{ $ServiceNam
 	return s
 }
 
+func (service *{{ $ServiceName }}ToldataClient) ToldataHealthCheck(ctx context.Context, req *toldata.Empty) (*toldata.ToldataHealthCheckInfo, error) {
+	functionName := "{{ $Namespace }}/{{ $ServiceName }}/ToldataHealthCheck"
+	
+	reqRaw, err := proto.Marshal(req)
+
+	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	if result.Data[0] == 0 {
+		// 0 means no error
+		p := &toldata.ToldataHealthCheckInfo{}
+		err = proto.Unmarshal(result.Data[1:], p)
+		if err != nil {
+			return nil, err
+		}
+		return p, nil
+	} else {
+		var pErr toldata.ErrorMessage
+		err = proto.Unmarshal(result.Data[1:], &pErr)
+		if err == nil {
+			return nil, errors.New(pErr.ErrorMessage)
+		} else {
+			return nil, err
+		}
+	}
+}
+
+
 
 {{ range .Method }}	
 
@@ -603,6 +633,8 @@ func (impl *{{ $ServiceName }}_{{ .Name }}ToldataServerImpl) Subscribe(service *
 	return err
 }
 
+
+
 {{ if .ServerStreaming }}
 func (service *{{ $ServiceName }}ToldataClient) {{ .Name }}(ctx context.Context, req *{{ .InputType | stripLastDot }}) (*{{ $ServiceName }}ToldataClient_{{ .Name }}, error) {
 	functionName := "{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}"
@@ -772,6 +804,34 @@ func (service *{{ $ServiceName }}ToldataServer) Subscribe{{ .Name }}() (<-chan s
 	{{ end }}
 
 
+	sub, err = bus.Connection.QueueSubscribe("{{ $Namespace }}/{{ $ServiceName }}/ToldataHealthCheck", "{{ $Namespace}}/{{ $ServiceName }}", func(m *nats.Msg) {
+		var input toldata.Empty
+		err := proto.Unmarshal(m.Data, &input)
+		if err != nil {
+			bus.HandleError(m.Reply, err)
+			return
+		}
+		result, err := service.Service.ToldataHealthCheck(bus.Context, &input)
+
+		if m.Reply != ""  {
+			if err != nil {
+				bus.HandleError(m.Reply, err)
+			} else {
+				raw, err := proto.Marshal(result)
+				if err != nil {
+					bus.HandleError(m.Reply, err)
+				} else {
+					zero := []byte{0}
+					bus.Connection.Publish(m.Reply, append(zero, raw...))
+				}
+			}
+		}
+
+	})
+
+	subscriptions = append(subscriptions, sub)
+
+
 	go func() {
 		defer close(done)
 
@@ -787,7 +847,11 @@ func (service *{{ $ServiceName }}ToldataServer) Subscribe{{ .Name }}() (<-chan s
 }
 
 
-{{ end }}`
+
+{{ end }}
+
+
+`
 )
 
 func stripLastDot(name string) string {
