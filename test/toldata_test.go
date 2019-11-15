@@ -595,3 +595,21 @@ func TestServerStreamP(t *testing.T) {
 	diff := (p2 - p1) / 1000000000
 	log.Println(fmt.Sprintf("%d secs, %d records/sec", diff, 1000000/diff))
 }
+
+func TestHealthCheck(t *testing.T) {
+	log.Println("HealthCheck")
+
+	ctx, cancel := context.WithCancel(context.Background())
+
+	defer cancel()
+	var client *toldata.Bus
+	client, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+
+	defer client.Close()
+
+	svc := NewTestServiceToldataClient(client)
+	_, err = svc.ToldataHealthCheck(ctx, &toldata.Empty{})
+
+	assert.Equal(t, nil, err)
+}
