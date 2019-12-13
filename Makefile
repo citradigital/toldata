@@ -28,7 +28,7 @@ PREFIX=$(shell echo $(PWD) | sed -e s:$(HOME):$(DIND_PREFIX):)
 include .env
 export $(shell sed 's/=.*//' .env)
 
-IMAGE_TAG ?= master
+IMAGE_TAG ?= latest
 export $IMAGE_TAG
 
 .PHONY : test
@@ -74,10 +74,11 @@ generator:
 build-generator:
 	mkdir -p tmp
 	cp -a cmd/toldata-gen tmp
+	cp api/toldata.proto deployments/docker/build/
 	docker run -v $(CACHE_PREFIX)/cache/go:/go/pkg/mod \
 		-v $(CACHE_PREFIX)/cache/apk:/etc/apk/cache \
 		-v $(PREFIX)/deployments/docker/build:/build \
 		-v $(PREFIX)/tmp/toldata-gen:/src \
 		-v $(PREFIX)/deployments/docker/build-generator/build.sh:/build.sh \
 		golang:1.12-alpine /build.sh
-	docker build -t citradigital/toldata -f deployments/docker/build-generator/Dockerfile deployments/docker/
+	docker build -t citradigital/toldata:$(IMAGE_TAG) -f deployments/docker/build-generator/Dockerfile deployments/docker/
