@@ -36,6 +36,10 @@ func (b *TestToldataService) ToldataHealthCheck(ctx context.Context, req *toldat
 	return ret, nil
 }
 
+func (b *TestToldataService) TestEmpty(ctx context.Context, req *toldata.Empty) (*toldata.Empty, error) {
+	return nil, nil
+}
+
 func (b *TestToldataService) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
 	if req.Input == "123456" {
 		return nil, errors.New("test-error-1")

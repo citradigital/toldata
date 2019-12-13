@@ -13,8 +13,9 @@
 
 syntax = "proto3";
 
-package cdl.toldata;
+package cdl.toldatatest;
 option go_package = "test";
+import "github.com/citradigital/toldata/toldata.proto";
 
 message TestARequest {
     string input = 1; 
@@ -50,4 +51,5 @@ service TestService {
     rpc StreamData(StreamDataRequest) returns (stream StreamDataResponse) {}
     rpc StreamDataAlt1(StreamDataRequest) returns (stream StreamDataResponse) {}
 
+    rpc TestEmpty(toldata.Empty) returns (toldata.Empty) {}
 }
