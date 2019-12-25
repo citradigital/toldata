@@ -210,7 +210,7 @@ func (service *{{ $ServiceName }}ToldataClient) ToldataHealthCheck(ctx context.C
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -465,7 +465,7 @@ func (client *{{ $ServiceName }}ToldataClient_{{ .Name }}) Send(req *{{ .InputTy
 	reqRaw, err := proto.Marshal(req)
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, reqRaw)
 	if err != nil {
-		return err
+		return errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -490,7 +490,7 @@ func (client *{{ $ServiceName }}ToldataClient_{{ .Name }}) Receive() (*{{ .Outpu
 	
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -520,7 +520,7 @@ func (client *{{ $ServiceName }}ToldataClient_{{ .Name }}) Done() (*{{ .OutputTy
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -651,7 +651,7 @@ func (service *{{ $ServiceName }}ToldataClient) {{ .Name }}(ctx context.Context)
 
 {{ end }}
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -690,7 +690,7 @@ func (service *{{ $ServiceName }}ToldataClient) {{ .Name }}(ctx context.Context,
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
