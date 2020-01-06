@@ -873,7 +873,6 @@ func (service *{{ $ServiceName }}ToldataServer) Subscribe{{ .Name }}() (<-chan s
 )
 
 func stripLastDot(name, packageName string) string {
-	log.Println(name, packageName)
 	if packageName != "" && strings.HasPrefix(name, "."+packageName) {
 		pos := strings.LastIndex(name, ".")
 		if pos == -1 {
