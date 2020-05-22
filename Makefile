@@ -66,19 +66,19 @@ gen_clean:
 
 gen: 
 	docker run -v $(PREFIX):/gen -v $(PREFIX)/api:/api citradigital/toldata -I /api/ /api/toldata.proto --gogofaster_out=/gen
-	docker run -v $(PREFIX)/test:/gen -v $(PREFIX)/api:/api citradigital/toldata -I /api/ /api/toldata_test.proto --toldata_out=grpc:/gen --gogofaster_out=plugins=grpc:/gen
+	docker run -v $(PREFIX)/test:/gen -v $(PREFIX)/api:/api citradigital/toldata -I /api/ /api/toldata_test.proto --toldata_out=plugins=rest,grpc:/gen --gogofaster_out=plugins=grpc:/gen
 
 generator:
 	go build -o toldata-gen cmd/toldata-gen/main.go
 
 build-generator:
-	mkdir -p tmp
-	cp -a cmd/toldata-gen tmp
+	mkdir -p tmp/src
+	cp -a *.go go.mod cmd tmp/src
 	cp api/toldata.proto deployments/docker/build/
 	docker run -v $(CACHE_PREFIX)/cache/go:/go/pkg/mod \
 		-v $(CACHE_PREFIX)/cache/apk:/etc/apk/cache \
 		-v $(PREFIX)/deployments/docker/build:/build \
-		-v $(PREFIX)/tmp/toldata-gen:/src \
+		-v $(PREFIX)/tmp/src:/src \
 		-v $(PREFIX)/deployments/docker/build-generator/build.sh:/build.sh \
 		golang:1.12-alpine /build.sh
 	docker build -t citradigital/toldata:$(IMAGE_TAG) -f deployments/docker/build-generator/Dockerfile deployments/docker/

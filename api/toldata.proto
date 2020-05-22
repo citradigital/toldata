@@ -15,11 +15,16 @@ syntax = "proto3";
 
 package cdl.toldata;
 option go_package = "toldata";
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.ServiceOptions {
+  string rest_mount = 99999;
+}
 
 message ErrorMessage {
-    string error_message = 1;
+    string error_message = 1 [ json_name = "error-message" ];
     int64 timestamp = 2;
-    string busID = 3;
+    string busID = 3 [ json_name = "bus-id" ];
 }
 
 message StreamInfo {

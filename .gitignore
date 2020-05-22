@@ -1,2 +1,3 @@
-deploytments/docker/build
+deployments/docker/build
+*.pb.go
 tmp

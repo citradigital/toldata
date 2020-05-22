@@ -97,7 +97,7 @@ func (service *TestServiceToldataClient) ToldataHealthCheck(ctx context.Context,
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -137,7 +137,7 @@ func (service *TestServiceToldataClient) GetTestA(ctx context.Context, req *Test
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -177,7 +177,7 @@ func (service *TestServiceToldataClient) GetTestAB(ctx context.Context, req *Tes
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -398,7 +398,7 @@ func (client *TestServiceToldataClient_FeedData) Send(req *FeedDataRequest) erro
 	reqRaw, err := proto.Marshal(req)
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, reqRaw)
 	if err != nil {
-		return err
+		return errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -425,7 +425,7 @@ func (client *TestServiceToldataClient_FeedData) Done() (*FeedDataResponse, erro
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -523,7 +523,7 @@ func (service *TestServiceToldataClient) FeedData(ctx context.Context) (*TestSer
 
 
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -724,7 +724,7 @@ func (client *TestServiceToldataClient_StreamData) Receive() (*StreamDataRespons
 	
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -754,7 +754,7 @@ func (client *TestServiceToldataClient_StreamData) Done() (*StreamDataResponse, 
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -835,7 +835,7 @@ func (service *TestServiceToldataClient) StreamData(ctx context.Context, req *St
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -1036,7 +1036,7 @@ func (client *TestServiceToldataClient_StreamDataAlt1) Receive() (*StreamDataRes
 	
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -1066,7 +1066,7 @@ func (client *TestServiceToldataClient_StreamDataAlt1) Done() (*StreamDataRespon
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -1147,7 +1147,7 @@ func (service *TestServiceToldataClient) StreamDataAlt1(ctx context.Context, req
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {
@@ -1192,7 +1192,7 @@ func (service *TestServiceToldataClient) TestEmpty(ctx context.Context, req *tol
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(functionName + ":" + err.Error())
 	}
 
 	if result.Data[0] == 0 {

@@ -44,6 +44,7 @@ message StreamDataResponse {
 }
 
 service TestService {
+    option (toldata.rest_mount)= "/api/test";
     rpc GetTestA(TestARequest) returns (TestAResponse) {}
     rpc GetTestAB(TestARequest) returns (TestAResponse) {}
 

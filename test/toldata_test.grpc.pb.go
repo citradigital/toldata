@@ -136,7 +136,6 @@ func (svc *TestServiceGRPC) StreamData(req *StreamDataRequest, stream TestServic
 		}
 	}
 
-	return nil
 }
 
 
@@ -167,7 +166,6 @@ func (svc *TestServiceGRPC) StreamDataAlt1(req *StreamDataRequest, stream TestSe
 		}
 	}
 
-	return nil
 }
 
 
