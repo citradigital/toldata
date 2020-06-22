@@ -6,6 +6,7 @@ const (
 // source: {{ .File }}
 package {{ .PackageName }}
 {{ $Namespace := .Namespace }}
+{{ $IsDirect = .IsDirect }}
 import (
   "encoding/json"
 	"github.com/citradigital/toldata"
@@ -38,16 +39,29 @@ type {{ $ServiceName }}REST struct {
 }
 
 func New{{ $ServiceName }}REST(ctx context.Context, config toldata.ServiceConfiguration) (*{{ $ServiceName }}REST, error) {
+	var service {{ $ServiceName}}REST
+
+	{{ if $IsDirect }}
+
+	service = {{ $ServiceName }}REST{
+		Context: ctx,
+		Service: New{{ $ServiceName }}ToldataDirectClient(),
+	}
+
+	{{ else }}
+
 	client, err := toldata.NewBus(ctx, config)
 	if err != nil {
 		return nil, err
 	}
 
-	service := {{ $ServiceName }}REST{
+	service = {{ $ServiceName }}REST{
 		Context: ctx,
 		Bus:     client,
 		Service: New{{ $ServiceName }}ToldataClient(client),
 	}
+
+	{{ end }}
 
 	return &service, nil
 }
@@ -123,16 +137,29 @@ type {{ $ServiceName }}GRPC struct {
 }
 
 func New{{ $ServiceName }}GRPC(ctx context.Context, config toldata.ServiceConfiguration) (*{{ $ServiceName }}GRPC, error) {
+	var service {{ $ServiceName}}GRPC
+
+	{{ if $IsDirect }}
+
+	service = {{ $ServiceName }}GRPC{
+		Context: ctx,
+		Service: New{{ $ServiceName }}ToldataDirectClient(),
+	}
+
+	{{ else }}
+
 	client, err := toldata.NewBus(ctx, config)
 	if err != nil {
 		return nil, err
 	}
 
-	service := {{ $ServiceName }}GRPC{
+	service = {{ $ServiceName }}GRPC{
 		Context: ctx,
 		Bus:     client,
 		Service: New{{ $ServiceName }}ToldataClient(client),
 	}
+
+	{{ end }}
 
 	return &service, nil
 }
@@ -268,6 +295,11 @@ type {{ $ServiceName }}ToldataClient struct {
 type {{ $ServiceName }}ToldataServer struct {
 	Bus *toldata.Bus
 	Service {{ $ServiceName }}ToldataInterface
+}
+
+func New{{ $ServiceName }}ToldataDirectClient() * {{$ServiceName}}ToldataClient {
+	s := &{{ $ServiceName }}ToldataClient{}
+	return s
 }
 
 func New{{ $ServiceName }}ToldataClient(bus *toldata.Bus) * {{$ServiceName}}ToldataClient {

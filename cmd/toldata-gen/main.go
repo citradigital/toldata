@@ -97,7 +97,7 @@ func newTemplate(content string) (*template.Template, error) {
 	return template.New("page").Funcs(fn).Parse(content)
 }
 
-func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateString string) (*plugin_go.CodeGeneratorResponse_File, error) {
+func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateString string, isDirect bool) (*plugin_go.CodeGeneratorResponse_File, error) {
 	topPackageName := in.GetPackage()
 	packageName := in.Options.GetGoPackage()
 	if packageName == "" {
@@ -118,6 +118,7 @@ func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateStri
 		"PackageName": packageName,
 		"Services":    in.Service,
 		"Namespace":   topPackageName,
+		"IsDirect":    isDirect,
 	})
 	if err != nil {
 		log.Println(err)
@@ -136,16 +137,16 @@ func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateStri
 
 }
 
-func generate(in *descriptor.FileDescriptorProto) (*plugin_go.CodeGeneratorResponse_File, error) {
-	return generateBase(in, "%v.toldata.pb.go", rpcTemplate)
+func generate(in *descriptor.FileDescriptorProto, isDirect bool) (*plugin_go.CodeGeneratorResponse_File, error) {
+	return generateBase(in, "%v.toldata.pb.go", rpcTemplate, isDirect)
 }
 
-func generateGRPC(in *descriptor.FileDescriptorProto) (*plugin_go.CodeGeneratorResponse_File, error) {
-	return generateBase(in, "%v.grpc.pb.go", grpcTemplate)
+func generateGRPC(in *descriptor.FileDescriptorProto, isDirect bool) (*plugin_go.CodeGeneratorResponse_File, error) {
+	return generateBase(in, "%v.grpc.pb.go", grpcTemplate, isDirect)
 }
 
-func generateREST(in *descriptor.FileDescriptorProto) (*plugin_go.CodeGeneratorResponse_File, error) {
-	return generateBase(in, "%v.rest.pb.go", restTemplate)
+func generateREST(in *descriptor.FileDescriptorProto, isDirect bool) (*plugin_go.CodeGeneratorResponse_File, error) {
+	return generateBase(in, "%v.rest.pb.go", restTemplate, isDirect)
 }
 
 func main() {
@@ -167,7 +168,12 @@ func main() {
 			continue
 		}
 
-		single, err := generate(file)
+		isDirect := false
+		if strings.Contains(req.GetParameter(), "direct") {
+			isDirect = true
+		}
+
+		single, err := generate(file, isDirect)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -175,7 +181,7 @@ func main() {
 		results = append(results, single)
 
 		if strings.Contains(req.GetParameter(), "grpc") {
-			single, err := generateGRPC(file)
+			single, err := generateGRPC(file, isDirect)
 			if err != nil {
 				log.Fatalln(err)
 			}
@@ -183,7 +189,7 @@ func main() {
 			results = append(results, single)
 		}
 		if strings.Contains(req.GetParameter(), "rest") {
-			single, err := generateREST(file)
+			single, err := generateREST(file, isDirect)
 			if err != nil {
 				log.Fatalln(err)
 			}
