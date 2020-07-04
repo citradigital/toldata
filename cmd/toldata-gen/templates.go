@@ -5,6 +5,7 @@ const (
 // package: {{ .Namespace }}
 // source: {{ .File }}
 package {{ .PackageName }}
+{{ $Busless := .Busless }}
 {{ $Namespace := .Namespace }}
 import (
   "encoding/json"
@@ -30,7 +31,6 @@ func throwError(w http.ResponseWriter, message string, code int) {
 {{ range .Services }}{{ $ServiceName := .Name }}
 {{ $Options := .Options }}
 
-
 type {{ $ServiceName }}REST struct {
 	Context context.Context
 	Bus     *toldata.Bus
@@ -38,15 +38,21 @@ type {{ $ServiceName }}REST struct {
 }
 
 func New{{ $ServiceName }}REST(ctx context.Context, config toldata.ServiceConfiguration) (*{{ $ServiceName }}REST, error) {
+	{{ if not $Busless }}
 	client, err := toldata.NewBus(ctx, config)
 	if err != nil {
 		return nil, err
 	}
+	{{ end }}
 
 	service := {{ $ServiceName }}REST{
 		Context: ctx,
+	{{ if not $Busless }}
 		Bus:     client,
 		Service: New{{ $ServiceName }}ToldataClient(client),
+	{{ else }}
+		Service: New{{ $ServiceName }}ToldataClient(nil),
+	{{ end }}
 	}
 
 	return &service, nil
@@ -102,6 +108,7 @@ func (svc *{{ $ServiceName }}REST) Install{{ $ServiceName }}Mux(mux *http.ServeM
 // package: {{ .Namespace }}
 // source: {{ .File }}
 package {{ .PackageName }}
+{{ $Busless := .Busless }}
 {{ $Namespace := .Namespace }}
 
 import (
@@ -115,6 +122,7 @@ func _eof_grpc() error {
 	return io.EOF
 }
 
+
 {{ range .Services }}{{ $ServiceName := .Name }}
 type {{ $ServiceName }}GRPC struct {
 	Context context.Context
@@ -123,15 +131,21 @@ type {{ $ServiceName }}GRPC struct {
 }
 
 func New{{ $ServiceName }}GRPC(ctx context.Context, config toldata.ServiceConfiguration) (*{{ $ServiceName }}GRPC, error) {
+	{{ if not $Busless }}
 	client, err := toldata.NewBus(ctx, config)
 	if err != nil {
 		return nil, err
 	}
+	{{ end }}
 
 	service := {{ $ServiceName }}GRPC{
 		Context: ctx,
+	{{ if not $Busless }}
 		Bus:     client,
 		Service: New{{ $ServiceName }}ToldataClient(client),
+	{{ else }}
+		Service: New{{ $ServiceName }}ToldataClient(nil),
+	{{ end }}
 	}
 
 	return &service, nil
@@ -225,6 +239,7 @@ func (svc *{{ $ServiceName }}GRPC) {{ .Name }}(ctx context.Context, req *{{ stri
 // package: {{ .Namespace }}
 // source: {{ .File }}
 
+{{ $Busless := .Busless }}
 package {{ .PackageName }}
 import (
 	"context"
@@ -233,6 +248,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/citradigital/toldata"
 	nats "github.com/nats-io/go-nats"
+	"reflect"
 )
 
 // Workaround for template problem
@@ -263,6 +279,9 @@ type {{ .Name }}ToldataInterface interface {
 {{ range .Services }}{{ $ServiceName := .Name }}
 type {{ $ServiceName }}ToldataClient struct {
 	Bus *toldata.Bus
+	{{ if $Busless }}
+	Service {{ $ServiceName }}ToldataInterface
+	{{ end }}
 }
 
 type {{ $ServiceName }}ToldataServer struct {
@@ -275,12 +294,29 @@ func New{{ $ServiceName }}ToldataClient(bus *toldata.Bus) * {{$ServiceName}}Told
 	return s
 }
 
+func (service *{{ $ServiceName }}ToldataClient) SetBuslessObject(target {{ $ServiceName }}ToldataInterface) error {
+	e := reflect.ValueOf(service).Elem()
+     
+  for i := 0; i < e.NumField(); i++ {
+	   varName := e.Type().Field(i).Name
+		 if varName == "Service" {
+			   service.Service = target
+				 return nil
+		 }
+	}
+	return errors.New("Not in busless mode")
+}
+
+
 func New{{ $ServiceName }}ToldataServer(bus *toldata.Bus, service {{ $ServiceName }}ToldataInterface) * {{$ServiceName}}ToldataServer {
 	s := &{{ $ServiceName }}ToldataServer{ Bus: bus, Service: service }
 	return s
 }
 
 func (service *{{ $ServiceName }}ToldataClient) ToldataHealthCheck(ctx context.Context, req *toldata.Empty) (*toldata.ToldataHealthCheckInfo, error) {
+{{ if $Busless }}
+  return service.Service.ToldataHealthCheck(ctx, req)
+{{ else }}
 	functionName := "{{ $Namespace }}/{{ $ServiceName }}/ToldataHealthCheck"
 	
 	reqRaw, err := proto.Marshal(req)
@@ -307,6 +343,7 @@ func (service *{{ $ServiceName }}ToldataClient) ToldataHealthCheck(ctx context.C
 			return nil, err
 		}
 	}
+{{ end}}
 }
 
 
@@ -565,6 +602,7 @@ func (client *{{ $ServiceName }}ToldataClient_{{ .Name }}) Send(req *{{ stripLas
 {{ if .ServerStreaming }}
 
 func (client *{{ $ServiceName }}ToldataClient_{{ .Name }}) Receive() (*{{ stripLastDot $OutputType $Namespace }}, error) {
+
 	functionName := "{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}_Receive_" + client.ID
 	
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
@@ -761,6 +799,9 @@ func (service *{{ $ServiceName }}ToldataClient) {{ .Name }}(ctx context.Context)
 {{ else }}
 
 func (service *{{ $ServiceName }}ToldataClient) {{ .Name }}(ctx context.Context, req *{{ stripLastDot $InputType $Namespace }}) (*{{ stripLastDot $OutputType $Namespace }}, error) {
+{{ if $Busless }}
+  return service.Service.{{ .Name }}(ctx, req)
+{{ else }}
 	functionName := "{{ $Namespace }}/{{ $ServiceName }}/{{ .Name }}"
 	
 	if req == nil {
@@ -790,6 +831,7 @@ func (service *{{ $ServiceName }}ToldataClient) {{ .Name }}(ctx context.Context,
 			return nil, err
 		}
 	}
+{{ end }}
 }
 
 {{ end }}

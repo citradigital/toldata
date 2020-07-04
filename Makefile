@@ -45,6 +45,23 @@ test:
 		-e UID=$(UID) \
 		golang:1.12-alpine /test.sh 
 
+gen-busless:
+	docker run -v $(PREFIX)/test:/gen -v $(PREFIX)/api:/api citradigital/toldata -I /api/ /api/toldata_test.proto --toldata_out=plugins=busless,rest,grpc:/gen --gogofaster_out=plugins=grpc:/gen
+
+test-busless: gen-busless 
+	docker run \
+		--network ${NAMESPACE}_default \
+		--env-file .env \
+		-v $(CACHE_PREFIX)/cache/go:/go/pkg/mod \
+		-v $(CACHE_PREFIX)/cache/apk:/etc/apk/cache \
+		-v $(PREFIX)/deployments/docker/build:/build \
+		-v $(PREFIX)/:/src \
+		-v $(PREFIX)/scripts/test-busless.sh:/test.sh \
+		-e UID=$(UID) \
+		golang:1.12-alpine /test.sh 
+
+
+
 buildtest: 
 	docker-compose -f ${RECIPE} -p ${NAMESPACE} build testapi
 

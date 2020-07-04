@@ -4,6 +4,7 @@
 package test
 
 
+
 import (
 	"io"
 	"github.com/citradigital/toldata"
@@ -16,6 +17,7 @@ func _eof_grpc() error {
 }
 
 
+
 type TestServiceGRPC struct {
 	Context context.Context
 	Bus     *toldata.Bus
@@ -23,15 +25,13 @@ type TestServiceGRPC struct {
 }
 
 func NewTestServiceGRPC(ctx context.Context, config toldata.ServiceConfiguration) (*TestServiceGRPC, error) {
-	client, err := toldata.NewBus(ctx, config)
-	if err != nil {
-		return nil, err
-	}
+	
 
 	service := TestServiceGRPC{
 		Context: ctx,
-		Bus:     client,
-		Service: NewTestServiceToldataClient(client),
+	
+		Service: NewTestServiceToldataClient(nil),
+	
 	}
 
 	return &service, nil

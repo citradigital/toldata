@@ -37,6 +37,8 @@ func TestRESTInit(t *testing.T) {
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
+	local := &TestToldataService{}
+	api.Service.SetBuslessObject(local)
 
 	go s.ListenAndServe()
 

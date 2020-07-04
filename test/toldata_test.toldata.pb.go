@@ -2,6 +2,7 @@
 // package: cdl.toldatatest
 // source: toldata_test.proto
 
+
 package test
 import (
 	"context"
@@ -10,6 +11,7 @@ import (
 	"github.com/gogo/protobuf/proto"
 	"github.com/citradigital/toldata"
 	nats "github.com/nats-io/go-nats"
+	"reflect"
 )
 
 // Workaround for template problem
@@ -73,6 +75,9 @@ type TestServiceToldataInterface interface {
 
 type TestServiceToldataClient struct {
 	Bus *toldata.Bus
+	
+	Service TestServiceToldataInterface
+	
 }
 
 type TestServiceToldataServer struct {
@@ -85,38 +90,29 @@ func NewTestServiceToldataClient(bus *toldata.Bus) * TestServiceToldataClient {
 	return s
 }
 
+func (service *TestServiceToldataClient) SetBuslessObject(target TestServiceToldataInterface) error {
+	e := reflect.ValueOf(service).Elem()
+     
+  for i := 0; i < e.NumField(); i++ {
+	   varName := e.Type().Field(i).Name
+		 if varName == "Service" {
+			   service.Service = target
+				 return nil
+		 }
+	}
+	return errors.New("Not in busless mode")
+}
+
+
 func NewTestServiceToldataServer(bus *toldata.Bus, service TestServiceToldataInterface) * TestServiceToldataServer {
 	s := &TestServiceToldataServer{ Bus: bus, Service: service }
 	return s
 }
 
 func (service *TestServiceToldataClient) ToldataHealthCheck(ctx context.Context, req *toldata.Empty) (*toldata.ToldataHealthCheckInfo, error) {
-	functionName := "cdl.toldatatest/TestService/ToldataHealthCheck"
-	
-	reqRaw, err := proto.Marshal(req)
 
-	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
-	if err != nil {
-		return nil, errors.New(functionName + ":" + err.Error())
-	}
+  return service.Service.ToldataHealthCheck(ctx, req)
 
-	if result.Data[0] == 0 {
-		// 0 means no error
-		p := &toldata.ToldataHealthCheckInfo{}
-		err = proto.Unmarshal(result.Data[1:], p)
-		if err != nil {
-			return nil, err
-		}
-		return p, nil
-	} else {
-		var pErr toldata.ErrorMessage
-		err = proto.Unmarshal(result.Data[1:], &pErr)
-		if err == nil {
-			return nil, errors.New(pErr.ErrorMessage)
-		} else {
-			return nil, err
-		}
-	}
 }
 
 
@@ -128,35 +124,9 @@ func (service *TestServiceToldataClient) ToldataHealthCheck(ctx context.Context,
 
 
 func (service *TestServiceToldataClient) GetTestA(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
-	functionName := "cdl.toldatatest/TestService/GetTestA"
-	
-	if req == nil {
-		return nil, errors.New("empty-request")
-	}
-	reqRaw, err := proto.Marshal(req)
 
-	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
-	if err != nil {
-		return nil, errors.New(functionName + ":" + err.Error())
-	}
+  return service.Service.GetTestA(ctx, req)
 
-	if result.Data[0] == 0 {
-		// 0 means no error
-		p := &TestAResponse{}
-		err = proto.Unmarshal(result.Data[1:], p)
-		if err != nil {
-			return nil, err
-		}
-		return p, nil
-	} else {
-		var pErr toldata.ErrorMessage
-		err = proto.Unmarshal(result.Data[1:], &pErr)
-		if err == nil {
-			return nil, errors.New(pErr.ErrorMessage)
-		} else {
-			return nil, err
-		}
-	}
 }
 
 
@@ -168,35 +138,9 @@ func (service *TestServiceToldataClient) GetTestA(ctx context.Context, req *Test
 
 
 func (service *TestServiceToldataClient) GetTestAB(ctx context.Context, req *TestARequest) (*TestAResponse, error) {
-	functionName := "cdl.toldatatest/TestService/GetTestAB"
-	
-	if req == nil {
-		return nil, errors.New("empty-request")
-	}
-	reqRaw, err := proto.Marshal(req)
 
-	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
-	if err != nil {
-		return nil, errors.New(functionName + ":" + err.Error())
-	}
+  return service.Service.GetTestAB(ctx, req)
 
-	if result.Data[0] == 0 {
-		// 0 means no error
-		p := &TestAResponse{}
-		err = proto.Unmarshal(result.Data[1:], p)
-		if err != nil {
-			return nil, err
-		}
-		return p, nil
-	} else {
-		var pErr toldata.ErrorMessage
-		err = proto.Unmarshal(result.Data[1:], &pErr)
-		if err == nil {
-			return nil, errors.New(pErr.ErrorMessage)
-		} else {
-			return nil, err
-		}
-	}
 }
 
 
@@ -720,6 +664,7 @@ type TestServiceToldataClient_StreamData struct {
 
 
 func (client *TestServiceToldataClient_StreamData) Receive() (*StreamDataResponse, error) {
+
 	functionName := "cdl.toldatatest/TestService/StreamData_Receive_" + client.ID
 	
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
@@ -1032,6 +977,7 @@ type TestServiceToldataClient_StreamDataAlt1 struct {
 
 
 func (client *TestServiceToldataClient_StreamDataAlt1) Receive() (*StreamDataResponse, error) {
+
 	functionName := "cdl.toldatatest/TestService/StreamDataAlt1_Receive_" + client.ID
 	
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, nil)
@@ -1183,35 +1129,9 @@ func (service *TestServiceToldataClient) StreamDataAlt1(ctx context.Context, req
 
 
 func (service *TestServiceToldataClient) TestEmpty(ctx context.Context, req *toldata.Empty) (*toldata.Empty, error) {
-	functionName := "cdl.toldatatest/TestService/TestEmpty"
-	
-	if req == nil {
-		return nil, errors.New("empty-request")
-	}
-	reqRaw, err := proto.Marshal(req)
 
-	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
-	if err != nil {
-		return nil, errors.New(functionName + ":" + err.Error())
-	}
+  return service.Service.TestEmpty(ctx, req)
 
-	if result.Data[0] == 0 {
-		// 0 means no error
-		p := &toldata.Empty{}
-		err = proto.Unmarshal(result.Data[1:], p)
-		if err != nil {
-			return nil, err
-		}
-		return p, nil
-	} else {
-		var pErr toldata.ErrorMessage
-		err = proto.Unmarshal(result.Data[1:], &pErr)
-		if err == nil {
-			return nil, errors.New(pErr.ErrorMessage)
-		} else {
-			return nil, err
-		}
-	}
 }
 
 

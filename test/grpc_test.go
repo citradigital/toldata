@@ -30,6 +30,8 @@ func startTestServer(grpcServer *grpc.Server) {
 	if err != nil {
 		log.Fatalln("Failed to create Toldata service")
 	}
+	local := &TestToldataService{}
+	api.Service.SetBuslessObject(local)
 
 	RegisterTestServiceServer(grpcServer, api)
 	log.Println("Starting GRPC server...")

@@ -97,7 +97,7 @@ func newTemplate(content string) (*template.Template, error) {
 	return template.New("page").Funcs(fn).Parse(content)
 }
 
-func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateString string) (*plugin_go.CodeGeneratorResponse_File, error) {
+func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateString string, isBusless bool) (*plugin_go.CodeGeneratorResponse_File, error) {
 	topPackageName := in.GetPackage()
 	packageName := in.Options.GetGoPackage()
 	if packageName == "" {
@@ -118,6 +118,7 @@ func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateStri
 		"PackageName": packageName,
 		"Services":    in.Service,
 		"Namespace":   topPackageName,
+		"Busless":     isBusless,
 	})
 	if err != nil {
 		log.Println(err)
@@ -136,16 +137,16 @@ func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateStri
 
 }
 
-func generate(in *descriptor.FileDescriptorProto) (*plugin_go.CodeGeneratorResponse_File, error) {
-	return generateBase(in, "%v.toldata.pb.go", rpcTemplate)
+func generate(in *descriptor.FileDescriptorProto, isBusless bool) (*plugin_go.CodeGeneratorResponse_File, error) {
+	return generateBase(in, "%v.toldata.pb.go", rpcTemplate, isBusless)
 }
 
-func generateGRPC(in *descriptor.FileDescriptorProto) (*plugin_go.CodeGeneratorResponse_File, error) {
-	return generateBase(in, "%v.grpc.pb.go", grpcTemplate)
+func generateGRPC(in *descriptor.FileDescriptorProto, isBusless bool) (*plugin_go.CodeGeneratorResponse_File, error) {
+	return generateBase(in, "%v.grpc.pb.go", grpcTemplate, isBusless)
 }
 
-func generateREST(in *descriptor.FileDescriptorProto) (*plugin_go.CodeGeneratorResponse_File, error) {
-	return generateBase(in, "%v.rest.pb.go", restTemplate)
+func generateREST(in *descriptor.FileDescriptorProto, isBusless bool) (*plugin_go.CodeGeneratorResponse_File, error) {
+	return generateBase(in, "%v.rest.pb.go", restTemplate, isBusless)
 }
 
 func main() {
@@ -162,12 +163,16 @@ func main() {
 
 	results := make([]*plugin_go.CodeGeneratorResponse_File, 0, len(req.ProtoFile))
 
+	isBusless := false
+	if strings.Contains(req.GetParameter(), "busless") {
+		isBusless = true
+	}
 	for _, file := range req.ProtoFile {
 		if len(file.Service) == 0 {
 			continue
 		}
 
-		single, err := generate(file)
+		single, err := generate(file, isBusless)
 		if err != nil {
 			log.Fatalln(err)
 		}
@@ -175,7 +180,7 @@ func main() {
 		results = append(results, single)
 
 		if strings.Contains(req.GetParameter(), "grpc") {
-			single, err := generateGRPC(file)
+			single, err := generateGRPC(file, isBusless)
 			if err != nil {
 				log.Fatalln(err)
 			}
@@ -183,7 +188,7 @@ func main() {
 			results = append(results, single)
 		}
 		if strings.Contains(req.GetParameter(), "rest") {
-			single, err := generateREST(file)
+			single, err := generateREST(file, isBusless)
 			if err != nil {
 				log.Fatalln(err)
 			}
