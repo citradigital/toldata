@@ -232,7 +232,7 @@ import (
    io "io"
 	"github.com/gogo/protobuf/proto"
 	"github.com/citradigital/toldata"
-	nats "github.com/nats-io/go-nats"
+	nats "github.com/nats-io/nats.go"
 )
 
 // Workaround for template problem

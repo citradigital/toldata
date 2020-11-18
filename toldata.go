@@ -19,9 +19,8 @@ import (
 
 	"github.com/gogo/protobuf/proto"
 
-	nats "github.com/nats-io/go-nats"
+	nats "github.com/nats-io/nats.go"
 )
-
 
 type ServiceConfiguration struct {
 	URL string
