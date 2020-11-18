@@ -16,6 +16,11 @@ syntax = "proto3";
 package cdl.toldatatest;
 option go_package = "test";
 import "github.com/citradigital/toldata/toldata.proto";
+import "google/protobuf/descriptor.proto";
+
+extend google.protobuf.ServiceOptions {
+  string rest_mount = 99999;
+}
 
 message TestARequest {
     string input = 1; 
@@ -44,7 +49,7 @@ message StreamDataResponse {
 }
 
 service TestService {
-    option (toldata.rest_mount)= "/api/test";
+    option (rest_mount)= "/api/test";
     rpc GetTestA(TestARequest) returns (TestAResponse) {}
     rpc GetTestAB(TestARequest) returns (TestAResponse) {}
 
