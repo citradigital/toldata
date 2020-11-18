@@ -69,7 +69,7 @@ gen:
 	docker run -v $(PREFIX)/test:/gen -v $(PREFIX)/api:/api citradigital/toldata -I /api/ /api/toldata_test.proto --toldata_out=plugins=rest,grpc:/gen --gogofaster_out=plugins=grpc:/gen
 
 generator:
-	go build -o toldata-gen cmd/toldata-gen/main.go
+	go build -o toldata-gen cmd/toldata-gen/main.go cmd/toldata-gen/templates.go
 
 build-generator:
 	mkdir -p tmp/src
