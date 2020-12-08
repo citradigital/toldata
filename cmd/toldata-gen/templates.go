@@ -82,7 +82,11 @@ func (svc *{{ $ServiceName }}REST) Install{{ $ServiceName }}Mux(mux *http.ServeM
 			throwError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		ret, err := svc.Service.{{ .Name }}(svc.Context, &req)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+		defer cancel()
+		
+		ret, err := svc.Service.{{ .Name }}(context.WithValue(ctx, "headers", r.Header), &req)
 		if err != nil {
 			throwError(w, err.Error(), http.StatusInternalServerError)
 			return
