@@ -13,6 +13,7 @@ import (
 	context "golang.org/x/net/context"
 	"net/http"
 	"time"
+	"fmt"
 )
 
 func throwError(w http.ResponseWriter, message string, code int) {
@@ -88,7 +89,13 @@ func (svc *{{ $ServiceName }}REST) Install{{ $ServiceName }}Mux(mux *http.ServeM
 		
 		ret, err := svc.Service.{{ .Name }}(context.WithValue(ctx, "headers", r.Header), &req)
 		if err != nil {
-			throwError(w, err.Error(), http.StatusInternalServerError)
+			code := 0
+			fmt.Sscanf(err.Error(), "http-%3d", &code)
+			if code != 0 {
+				throwError(w, err.Error(), code)
+			} else {
+				throwError(w, err.Error(), http.StatusInternalServerError)
+			}
 			return
 		}
 
