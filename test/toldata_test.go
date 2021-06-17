@@ -25,6 +25,7 @@ import (
 
 	"github.com/citradigital/toldata"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/peer"
 )
 
 type TestToldataService struct {
@@ -70,6 +71,14 @@ func (b *TestToldataService) GetTestAB(ctx context.Context, req *TestARequest) (
 	result := &TestAResponse{
 		Output: "AB" + req.Input,
 		Id:     req.Id,
+	}
+	return result, nil
+}
+
+func (b *TestToldataService) GetTestGetIP(ctx context.Context, req *toldata.Empty) (*TestGetIPResponse, error) {
+	pInfo, _ := peer.FromContext(ctx)
+	result := &TestGetIPResponse{
+		Ip: pInfo.Addr.String(),
 	}
 	return result, nil
 }
@@ -197,6 +206,19 @@ func TestOK1(t *testing.T) {
 	testOK1(t, "t-ok1")
 }
 
+func TestGetIP(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var client *toldata.Bus
+	client, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
+	assert.Equal(t, nil, err)
+	defer client.Close()
+	svc := NewTestServiceToldataClient(client)
+	resp, err := svc.GetTestGetIP(ctx, &toldata.Empty{})
+	assert.Equal(t, nil, err)
+	assert.NotEqual(t, "", resp.Ip)
+	log.Println("req ip: ", resp.Ip)
+	cancel()
+}
 func TestOKParallel1(t *testing.T) {
 	t.Parallel()
 	log.Println("Parallel 1 -----------")
