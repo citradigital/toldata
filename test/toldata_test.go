@@ -206,19 +206,6 @@ func TestOK1(t *testing.T) {
 	testOK1(t, "t-ok1")
 }
 
-func TestGetIP(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	var client *toldata.Bus
-	client, err := toldata.NewBus(ctx, toldata.ServiceConfiguration{URL: natsURL})
-	assert.Equal(t, nil, err)
-	defer client.Close()
-	svc := NewTestServiceToldataClient(client)
-	resp, err := svc.GetTestGetIP(ctx, &toldata.Empty{})
-	assert.Equal(t, nil, err)
-	assert.NotEqual(t, "", resp.Ip)
-	log.Println("req ip: ", resp.Ip)
-	cancel()
-}
 func TestOKParallel1(t *testing.T) {
 	t.Parallel()
 	log.Println("Parallel 1 -----------")
