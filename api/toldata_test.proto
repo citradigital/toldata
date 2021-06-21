@@ -48,10 +48,14 @@ message StreamDataResponse {
     int64 data = 1;
 }
 
+message TestGetIPResponse {
+    string ip = 1;
+}
 service TestService {
     option (rest_mount)= "/api/test";
     rpc GetTestA(TestARequest) returns (TestAResponse) {}
     rpc GetTestAB(TestARequest) returns (TestAResponse) {}
+    rpc GetTestGetIP(toldata.Empty) returns (TestGetIPResponse) {}
 
     rpc FeedData(stream FeedDataRequest) returns (FeedDataResponse) {}
     rpc StreamData(StreamDataRequest) returns (stream StreamDataResponse) {}

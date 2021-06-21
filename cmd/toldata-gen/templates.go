@@ -76,7 +76,11 @@ func (svc *{{ $ServiceName }}REST) Install{{ $ServiceName }}Mux(mux *http.ServeM
 			throwError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		ret, err := svc.Service.{{ .Name }}(svc.Context, &req)
+		ip := strings.Split(r.RemoteAddr, ":")[0]
+		ipaddr := &net.IPAddr{IP: net.ParseIP(ip)}
+		peerInfo := &peer.Peer{Addr: ipaddr}
+		ctxWithPeer := peer.NewContext(svc.Context, peerInfo)
+		ret, err := svc.Service.{{ .Name }}(ctxWithPeer, &req)
 		if err != nil {
 			throwError(w, err.Error(), http.StatusInternalServerError)
 			return

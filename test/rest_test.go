@@ -121,3 +121,21 @@ func TestRESTError(t *testing.T) {
 	assert.NotEqual(t, nil, errResp)
 	assert.Equal(t, "test-error-1", errResp.ErrorMessage)
 }
+
+func TestRESTGetIP(t *testing.T) {
+	url := "http://" + serverAddrREST + "/api/test/cdl.toldatatest/TestService/GetTestGetIP"
+	httpReq, err := http.NewRequest("POST", url, bytes.NewBufferString("{}"))
+	httpReq.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	httpResp, err := client.Do(httpReq)
+	assert.Equal(t, nil, err)
+	defer httpResp.Body.Close()
+
+	var resp TestGetIPResponse
+	err = json.NewDecoder(httpResp.Body).Decode(&resp)
+	assert.Equal(t, nil, err)
+	assert.NotEqual(t, nil, resp)
+	assert.NotEqual(t, "", resp.Ip)
+	log.Println("req ip: ", resp.Ip)
+}

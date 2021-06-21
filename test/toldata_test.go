@@ -25,6 +25,7 @@ import (
 
 	"github.com/citradigital/toldata"
 	"github.com/stretchr/testify/assert"
+	"google.golang.org/grpc/peer"
 )
 
 type TestToldataService struct {
@@ -70,6 +71,14 @@ func (b *TestToldataService) GetTestAB(ctx context.Context, req *TestARequest) (
 	result := &TestAResponse{
 		Output: "AB" + req.Input,
 		Id:     req.Id,
+	}
+	return result, nil
+}
+
+func (b *TestToldataService) GetTestGetIP(ctx context.Context, req *toldata.Empty) (*TestGetIPResponse, error) {
+	pInfo, _ := peer.FromContext(ctx)
+	result := &TestGetIPResponse{
+		Ip: pInfo.Addr.String(),
 	}
 	return result, nil
 }
