@@ -102,6 +102,7 @@ func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateStri
 	if err != nil {
 		return nil, err
 	}
+
 	err = t.Execute(buf, map[string]interface{}{
 		"File":        *in.Name,
 		"PackageName": packageName,
@@ -118,7 +119,8 @@ func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateStri
 	filename = filename[0 : len(filename)-len(ext)]
 	filename = fmt.Sprintf(outputFormat, filename)
 
-	s, err := format.Source(buf.Bytes())
+	code := strings.ReplaceAll(buf.String(), "&lt;", "<")
+	s, err := format.Source([]byte(code))
 	if err != nil {
 		log.Println(err)
 		return nil, err

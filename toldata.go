@@ -35,8 +35,7 @@ type Bus struct {
 
 func NewBus(ctx context.Context, config ServiceConfiguration) (*Bus, error) {
 
-	k := string("BusID")
-
+	key := "BusID"
 	busID := config.ID
 	if busID == "" {
 		busID = "BUS"
@@ -44,7 +43,7 @@ func NewBus(ctx context.Context, config ServiceConfiguration) (*Bus, error) {
 
 	s := &Bus{
 		Configuration: config,
-		Context:       context.WithValue(ctx, k, busID),
+		Context:       context.WithValue(ctx, key, busID),
 	}
 
 	err := s.initConnection()

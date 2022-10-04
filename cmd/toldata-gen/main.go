@@ -26,6 +26,7 @@ import (
 )
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 	input, err := io.ReadAll(os.Stdin)
 	if err != nil {
 		log.Fatalln(err)

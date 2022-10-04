@@ -67,7 +67,7 @@ func (svc *{{ $ServiceName }}REST) Install{{ $ServiceName }}Mux(mux *http.ServeM
 
 
 
-  mux.HandleFunc("{{ getServiceOption $Options 99999 }}/{{ $Namespace }}/{{ $ServiceName }}/{{ .Name  }}", 
+  mux.HandleFunc("{{ getServiceOption $Options 999999 }}/{{ $Namespace }}/{{ $ServiceName }}/{{ .Name  }}", 
 	func (w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
 			throwError(w, "Invalid request method", http.StatusMethodNotAllowed)

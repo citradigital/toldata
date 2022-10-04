@@ -62,16 +62,16 @@ runtest: cleantest buildtest
 
 gen_clean:
 	rm -f *.pb.go
+	rm -f test/*.pb.go
 
 gen: 
-	echo $(PREFIX)
-	docker run --platform linux/amd64 \
+	@docker run --platform linux/amd64 \
 		-v $(PREFIX):/gen \
 		-v $(PREFIX)/api:/api \
 		generator/toldata:$(IMAGE_TAG) -I /api /api/toldata.proto \
 			--toldata_out=grpc:/gen --gogofaster_out=plugins=grpc:/gen
 
-	docker run --platform linux/amd64 \
+	@docker run --platform linux/amd64 \
 		-v $(PREFIX)/test:/gen \
 		-v $(PREFIX)/api:/api \
 		generator/toldata:$(IMAGE_TAG) -I /api/ /api/toldata_test.proto \
@@ -81,15 +81,16 @@ generator:
 	go build -o toldata-gen cmd/toldata-gen/main.go cmd/toldata-gen/templates.go
 
 build-generator:
-	mkdir -p tmp/src
-	cp -a *.go go.mod cmd tmp/src
-	cp api/toldata.proto deployments/docker/build/
+	@mkdir -p tmp/src
+	@cp -a *.go go.mod cmd tmp/src
+	@cp api/toldata.proto deployments/docker/build/
 
-	docker run \
+	@docker run \
 		-v $(CACHE_PREFIX)/cache/go:/go/pkg/mod \
 		-v $(CACHE_PREFIX)/cache/apk:/etc/apk/cache \
 		-v $(PREFIX)/deployments/docker/build:/build \
 		-v $(PREFIX)/tmp/src:/src \
 		-v $(PREFIX)/deployments/docker/build-generator/build.sh:/build.sh \
 			golang:1.19-alpine /build.sh
-	docker build -t generator/toldata:$(IMAGE_TAG) -f deployments/docker/build-generator/Dockerfile deployments/docker/
+	
+	@docker build -t generator/toldata:$(IMAGE_TAG) -f deployments/docker/build-generator/Dockerfile deployments/docker/

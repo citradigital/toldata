@@ -19,7 +19,7 @@ import "github.com/darmawan01/toldata/toldata.proto";
 import "google/protobuf/descriptor.proto";
 
 extend google.protobuf.ServiceOptions {
-  string rest_mount = 99999;
+  string rest_mount = 999999;
 }
 
 message TestARequest {
