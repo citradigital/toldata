@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/citradigital/toldata"
+	"github.com/darmawan01/toldata"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/peer"
 )

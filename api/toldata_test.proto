@@ -15,7 +15,7 @@ syntax = "proto3";
 
 package cdl.toldatatest;
 option go_package = "test";
-import "github.com/citradigital/toldata/toldata.proto";
+import "github.com/darmawan01/toldata/toldata.proto";
 import "google/protobuf/descriptor.proto";
 
 extend google.protobuf.ServiceOptions {

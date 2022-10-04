@@ -6,7 +6,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/citradigital/toldata"
+	"github.com/darmawan01/toldata"
 )
 
 var d *TestToldataService

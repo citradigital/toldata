@@ -11,7 +11,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FROM golang:1.12-alpine
+FROM golang:1.19-alpine
 ENV _DBHOST testdb
 ENV _DBPORT 5432
 ENV NATS_URL nats://testnats:4222

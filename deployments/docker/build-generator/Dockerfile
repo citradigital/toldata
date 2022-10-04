@@ -14,7 +14,7 @@
 FROM herpiko/protoc
 
 COPY build/protoc-gen-toldata /usr/bin
-RUN mkdir -p /protobuf/github.com/citradigital/toldata
-COPY build/toldata.proto /protobuf/github.com/citradigital/toldata
+RUN mkdir -p /protobuf/github.com/darmawan01/toldata
+COPY build/toldata.proto /protobuf/github.com/darmawan01/toldata
 
 ENTRYPOINT ["/usr/bin/protoc", "-I/protobuf"]

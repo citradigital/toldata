@@ -35,7 +35,6 @@ export $IMAGE_TAG
 
 test: 
 	docker run \
-		--network ${NAMESPACE}_default \
 		--env-file .env \
 		-v $(CACHE_PREFIX)/cache/go:/go/pkg/mod \
 		-v $(CACHE_PREFIX)/cache/apk:/etc/apk/cache \
@@ -43,7 +42,7 @@ test:
 		-v $(PREFIX)/:/src \
 		-v $(PREFIX)/scripts/test.sh:/test.sh \
 		-e UID=$(UID) \
-		golang:1.12-alpine /test.sh 
+		golang:1.19-alpine /test.sh 
 
 buildtest: 
 	docker-compose -f ${RECIPE} -p ${NAMESPACE} build testapi
@@ -65,8 +64,18 @@ gen_clean:
 	rm -f *.pb.go
 
 gen: 
-	docker run -v $(PREFIX):/gen -v $(PREFIX)/api:/api citradigital/toldata -I /api/ /api/toldata.proto --gogofaster_out=/gen
-	docker run -v $(PREFIX)/test:/gen -v $(PREFIX)/api:/api citradigital/toldata -I /api/ /api/toldata_test.proto --toldata_out=plugins=rest,grpc:/gen --gogofaster_out=plugins=grpc:/gen
+	echo $(PREFIX)
+	docker run --platform linux/amd64 \
+		-v $(PREFIX):/gen \
+		-v $(PREFIX)/api:/api \
+		generator/toldata:$(IMAGE_TAG) -I /api /api/toldata.proto \
+			--toldata_out=grpc:/gen --gogofaster_out=plugins=grpc:/gen
+
+	docker run --platform linux/amd64 \
+		-v $(PREFIX)/test:/gen \
+		-v $(PREFIX)/api:/api \
+		generator/toldata:$(IMAGE_TAG) -I /api/ /api/toldata_test.proto \
+        	--toldata_out=grpc,rest:/gen --gogofaster_out=plugins=grpc:/gen
 
 generator:
 	go build -o toldata-gen cmd/toldata-gen/main.go cmd/toldata-gen/templates.go
@@ -75,10 +84,12 @@ build-generator:
 	mkdir -p tmp/src
 	cp -a *.go go.mod cmd tmp/src
 	cp api/toldata.proto deployments/docker/build/
-	docker run -v $(CACHE_PREFIX)/cache/go:/go/pkg/mod \
+
+	docker run \
+		-v $(CACHE_PREFIX)/cache/go:/go/pkg/mod \
 		-v $(CACHE_PREFIX)/cache/apk:/etc/apk/cache \
 		-v $(PREFIX)/deployments/docker/build:/build \
 		-v $(PREFIX)/tmp/src:/src \
 		-v $(PREFIX)/deployments/docker/build-generator/build.sh:/build.sh \
-		golang:1.12-alpine /build.sh
-	docker build -t citradigital/toldata:$(IMAGE_TAG) -f deployments/docker/build-generator/Dockerfile deployments/docker/
+			golang:1.19-alpine /build.sh
+	docker build -t generator/toldata:$(IMAGE_TAG) -f deployments/docker/build-generator/Dockerfile deployments/docker/
