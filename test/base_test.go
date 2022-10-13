@@ -56,9 +56,9 @@ func (f *TestFixtures) GetValue() string {
 	return f.Value
 }
 
-var fixtures Fixtures
-
 func CreateFixtures() *TestFixtures {
-	return &TestFixtures{Value: "",
-		Counter: make(map[string]int)}
+	return &TestFixtures{
+		Value:   "",
+		Counter: make(map[string]int),
+	}
 }

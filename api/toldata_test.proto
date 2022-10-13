@@ -14,8 +14,8 @@
 syntax = "proto3";
 
 package cdl.toldatatest;
-option go_package = "test";
-import "github.com/darmawan01/toldata/toldata.proto";
+option go_package = "./;test";
+
 import "google/protobuf/descriptor.proto";
 
 extend google.protobuf.ServiceOptions {
@@ -51,15 +51,18 @@ message StreamDataResponse {
 message TestGetIPResponse {
     string ip = 1;
 }
+
+message Empty {}
+
 service TestService {
     option (rest_mount)= "/api/test";
     rpc GetTestA(TestARequest) returns (TestAResponse) {}
     rpc GetTestAB(TestARequest) returns (TestAResponse) {}
-    rpc GetTestGetIP(toldata.Empty) returns (TestGetIPResponse) {}
+    rpc GetTestGetIP(Empty) returns (TestGetIPResponse) {}
 
     rpc FeedData(stream FeedDataRequest) returns (FeedDataResponse) {}
     rpc StreamData(StreamDataRequest) returns (stream StreamDataResponse) {}
     rpc StreamDataAlt1(StreamDataRequest) returns (stream StreamDataResponse) {}
 
-    rpc TestEmpty(toldata.Empty) returns (toldata.Empty) {}
+    rpc TestEmpty(Empty) returns (Empty) {}
 }

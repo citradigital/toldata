@@ -11,11 +11,14 @@ import (
 	"github.com/darmawan01/toldata"
 	"github.com/stretchr/testify/assert"
 	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 	status "google.golang.org/grpc/status"
 )
 
-var grpcServer *grpc.Server
-var grpcClient TestServiceClient
+var (
+	grpcServer *grpc.Server
+	grpcClient TestServiceClient
+)
 
 const serverAddr = "localhost:21001"
 
@@ -44,8 +47,7 @@ func TestGRPCInit(t *testing.T) {
 	time.Sleep(time.Second * 2)
 
 	var opts []grpc.DialOption
-	opts = append(opts, grpc.WithInsecure())
-	opts = append(opts, grpc.WithTimeout(time.Second))
+	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 
 	conn, err := grpc.Dial(serverAddr, opts...)
 	if err != nil {
@@ -114,5 +116,4 @@ func TestGRPCFeedDataHappy(t *testing.T) {
 	assert.Equal(t, nil, err)
 	assert.NotEqual(t, nil, resp)
 	assert.Equal(t, int64(45), resp.Sum)
-
 }

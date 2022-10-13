@@ -20,9 +20,9 @@ import (
 	"strings"
 
 	"github.com/darmawan01/toldata"
-	plugin_go "github.com/gogo/protobuf/protoc-gen-gogo/plugin"
+	plugin "google.golang.org/protobuf/types/pluginpb"
 
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func main() {
@@ -32,21 +32,40 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	req := plugin_go.CodeGeneratorRequest{}
+	req := plugin.CodeGeneratorRequest{}
 	err = proto.Unmarshal(input, &req)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	results := make([]*plugin_go.CodeGeneratorResponse_File, 0, len(req.ProtoFile))
-
+	results := make([]*plugin.CodeGeneratorResponse_File, 0, len(req.ProtoFile))
 	for _, file := range req.ProtoFile {
 		if len(file.Service) == 0 {
 			continue
 		}
 
+		pathsSourceRelative := false
+		for _, param := range strings.Split(req.GetParameter(), ",") {
+			var value string
+			if i := strings.Index(param, "="); i >= 0 {
+				value = param[i+1:]
+				param = param[0:i]
+			}
+
+			if param == "paths" {
+				if value == "source_relative" {
+					pathsSourceRelative = true
+				} else if value == "import" {
+					pathsSourceRelative = false
+				} else {
+					log.Fatalf(`unknown path type %q: want "import" or "source_relative"`, value)
+				}
+			}
+		}
+
 		gen := toldata.Generator{
-			File: file,
+			File:                file,
+			PathsSourceRelative: pathsSourceRelative,
 		}
 
 		single, err := gen.Generate()
@@ -75,9 +94,10 @@ func main() {
 
 	}
 
-	res := &plugin_go.CodeGeneratorResponse{
+	res := &plugin.CodeGeneratorResponse{
 		File: results,
 	}
+
 	result, err := proto.Marshal(res)
 	if err != nil {
 		log.Fatalln(err)

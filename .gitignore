@@ -1,2 +1,3 @@
 deployments/docker/build
 tmp
+cover.out

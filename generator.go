@@ -3,20 +3,22 @@ package toldata
 import (
 	"bytes"
 	"errors"
-	fmt "fmt"
+	"fmt"
 	"go/format"
 	"html/template"
 	"log"
-	"path/filepath"
+	"path"
 	"strings"
 
-	"github.com/gogo/protobuf/proto"
-	"github.com/gogo/protobuf/protoc-gen-gogo/descriptor"
-	plugin_go "github.com/gogo/protobuf/protoc-gen-gogo/plugin"
+	"github.com/golang/protobuf/proto"
+
+	descriptor "google.golang.org/protobuf/types/descriptorpb"
+	plugin "google.golang.org/protobuf/types/pluginpb"
 )
 
 type Generator struct {
-	File *descriptor.FileDescriptorProto
+	File                *descriptor.FileDescriptorProto
+	PathsSourceRelative bool
 }
 
 func getServiceOption(options *descriptor.ServiceOptions, index int) string {
@@ -44,6 +46,7 @@ func getServiceOption(options *descriptor.ServiceOptions, index int) string {
 			}
 		}
 	}
+
 	return "/api"
 }
 
@@ -86,9 +89,81 @@ func newTemplate(content string) (*template.Template, error) {
 	return template.New("page").Funcs(fn).Parse(content)
 }
 
-func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateString string) (*plugin_go.CodeGeneratorResponse_File, error) {
-	topPackageName := in.GetPackage()
-	packageName := in.Options.GetGoPackage()
+// baseName returns the last path element of the name, with the last dotted suffix removed.
+func baseName(name string) string {
+	// First, find the last element
+	if i := strings.LastIndex(name, "/"); i >= 0 {
+		name = name[i+1:]
+	}
+	// Now drop the suffix
+	if i := strings.LastIndex(name, "."); i >= 0 {
+		name = name[0:i]
+	}
+	return name
+}
+
+// getGoPackage returns the file's go_package option.
+// If it containts a semicolon, only the part before it is returned.
+func getGoPackage(fd *descriptor.FileDescriptorProto) string {
+	pkg := fd.GetOptions().GetGoPackage()
+	if strings.Contains(pkg, ";") {
+		parts := strings.Split(pkg, ";")
+		if len(parts) > 2 {
+			log.Fatalf("protoc-gen-toldata: go_package '%s' contains more than 1 ';'", pkg)
+		}
+		pkg = parts[1]
+	}
+
+	return pkg
+}
+
+// goPackageOption interprets the file's go_package option.
+// If there is no go_package, it returns ("", "", false).
+// If there's a simple name, it returns ("", pkg, true).
+// If the option implies an import path, it returns (impPath, pkg, true).
+func goPackageOption(d *descriptor.FileDescriptorProto) (impPath, pkg string, ok bool) {
+	pkg = getGoPackage(d)
+	if pkg == "" {
+		return
+	}
+	ok = true
+	// The presence of a slash implies there's an import path.
+	slash := strings.LastIndex(pkg, "/")
+	if slash < 0 {
+		return
+	}
+	impPath, pkg = pkg, pkg[slash+1:]
+	// A semicolon-delimited suffix overrides the package name.
+	sc := strings.IndexByte(impPath, ';')
+	if sc < 0 {
+		return
+	}
+	impPath, pkg = impPath[:sc], impPath[sc+1:]
+	return
+}
+
+// goPackageName returns the Go package name to use in the
+// generated Go file.  The result explicit reports whether the name
+// came from an option go_package statement.  If explicit is false,
+// the name was derived from the protocol buffer's package statement
+// or the input file name.
+func goPackageName(d *descriptor.FileDescriptorProto) (name string, explicit bool) {
+	// Does the file have a "go_package" option?
+	if _, pkg, ok := goPackageOption(d); ok {
+		return pkg, true
+	}
+
+	// Does the file have a package clause?
+	if pkg := d.GetPackage(); pkg != "" {
+		return pkg, false
+	}
+	// Use the file base name.
+	return baseName(d.GetName()), false
+}
+
+func (g Generator) generateBase(outputFormat, templateString string) (*plugin.CodeGeneratorResponse_File, error) {
+	topPackageName := g.File.GetPackage()
+	packageName := g.File.Options.GetGoPackage()
 	if packageName == "" {
 		return nil, errors.New("unable to find go_package options in .proto file")
 	}
@@ -103,21 +178,17 @@ func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateStri
 		return nil, err
 	}
 
+	cleanedPkgName, _ := goPackageName(g.File)
 	err = t.Execute(buf, map[string]interface{}{
-		"File":        *in.Name,
-		"PackageName": packageName,
-		"Services":    in.Service,
+		"File":        *g.File.Name,
+		"PackageName": cleanedPkgName,
+		"Services":    g.File.Service,
 		"Namespace":   topPackageName,
 	})
 	if err != nil {
 		log.Println(err)
 		return nil, err
 	}
-
-	filename := *in.Name
-	ext := filepath.Ext(filename)
-	filename = filename[0 : len(filename)-len(ext)]
-	filename = fmt.Sprintf(outputFormat, filename)
 
 	code := strings.ReplaceAll(buf.String(), "&lt;", "<")
 	s, err := format.Source([]byte(code))
@@ -126,21 +197,25 @@ func generateBase(in *descriptor.FileDescriptorProto, outputFormat, templateStri
 		return nil, err
 	}
 
-	return &plugin_go.CodeGeneratorResponse_File{
+	filename := *g.File.Name
+	ext := path.Ext(filename)
+	filename = filename[0 : len(filename)-len(ext)]
+	filename = fmt.Sprintf(outputFormat, filename)
+
+	return &plugin.CodeGeneratorResponse_File{
 		Name:    &filename,
 		Content: stringPtr(string(s)),
 	}, nil
-
 }
 
-func (g Generator) Generate() (*plugin_go.CodeGeneratorResponse_File, error) {
-	return generateBase(g.File, "%v.toldata.pb.go", RPCTemplate)
+func (g Generator) Generate() (*plugin.CodeGeneratorResponse_File, error) {
+	return g.generateBase("%v.toldata.pb.go", RPCTemplate)
 }
 
-func (g Generator) GenerateGRPC() (*plugin_go.CodeGeneratorResponse_File, error) {
-	return generateBase(g.File, "%v.grpc.pb.go", GRPCTemplate)
+func (g Generator) GenerateGRPC() (*plugin.CodeGeneratorResponse_File, error) {
+	return g.generateBase("%v.grpc.pb.go", GRPCTemplate)
 }
 
-func (g Generator) GenerateREST() (*plugin_go.CodeGeneratorResponse_File, error) {
-	return generateBase(g.File, "%v.rest.pb.go", RestTemplate)
+func (g Generator) GenerateREST() (*plugin.CodeGeneratorResponse_File, error) {
+	return g.generateBase("%v.rest.pb.go", RestTemplate)
 }

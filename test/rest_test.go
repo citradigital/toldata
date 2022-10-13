@@ -15,12 +15,6 @@ import (
 
 const serverAddrREST = "localhost:21002"
 
-func startRESTTestServer(s *http.Server) {
-
-	log.Println("Starting REST server...")
-	log.Fatal(http.ListenAndServe(serverAddrREST, nil))
-}
-
 func TestRESTInit(t *testing.T) {
 	ctx := context.Background()
 	api, err := NewTestServiceREST(ctx, toldata.ServiceConfiguration{URL: natsURL})
@@ -54,7 +48,7 @@ func TestREST1(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	url := "http://" + serverAddrREST + "/api/test/cdl.toldatatest/TestService/GetTestA"
-	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	httpReq, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -79,7 +73,7 @@ func TestREST2(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	url := "http://" + serverAddrREST + "/api/test/cdl.toldatatest/TestService/GetTestAB"
-	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	httpReq, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -105,7 +99,7 @@ func TestRESTError(t *testing.T) {
 	assert.Equal(t, nil, err)
 
 	url := "http://" + serverAddrREST + "/api/test/cdl.toldatatest/TestService/GetTestAB"
-	httpReq, err := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
+	httpReq, _ := http.NewRequest("POST", url, bytes.NewBuffer(jsonPayload))
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
@@ -124,7 +118,7 @@ func TestRESTError(t *testing.T) {
 
 func TestRESTGetIP(t *testing.T) {
 	url := "http://" + serverAddrREST + "/api/test/cdl.toldatatest/TestService/GetTestGetIP"
-	httpReq, err := http.NewRequest("POST", url, bytes.NewBufferString("{}"))
+	httpReq, _ := http.NewRequest("POST", url, bytes.NewBufferString("{}"))
 	httpReq.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}

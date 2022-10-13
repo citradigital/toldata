@@ -69,16 +69,22 @@ gen:
 		-v $(PREFIX):/gen \
 		-v $(PREFIX)/api:/api \
 		generator/toldata:$(IMAGE_TAG) -I /api /api/toldata.proto \
-			--toldata_out=grpc:/gen --gogofaster_out=plugins=grpc:/gen
+			--toldata_out=grpc:/gen --go_out=./.
 
 	@docker run --platform linux/amd64 \
 		-v $(PREFIX)/test:/gen \
 		-v $(PREFIX)/api:/api \
 		generator/toldata:$(IMAGE_TAG) -I /api/ /api/toldata_test.proto \
-        	--toldata_out=grpc,rest:/gen --gogofaster_out=plugins=grpc:/gen
+        	--toldata_out=grpc,rest:/gen --go_out=./test --go-grpc_out=./test
 
 generator:
-	go build -o toldata-gen cmd/toldata-gen/main.go cmd/toldata-gen/templates.go
+	go build -o protoc-gen-toldata cmd/protoc-gen-toldata/main.go
+
+generator_gen: 
+	protoc api/toldata.proto --go_out=./. --toldata_out=grpc:./.
+	
+	protoc -I api/ api/toldata_test.proto --go_out=./test --go-grpc_out=./test --toldata_out=grpc,rest:./test
+		
 
 build-generator:
 	@mkdir -p tmp/src

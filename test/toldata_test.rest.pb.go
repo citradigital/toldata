@@ -13,6 +13,7 @@ import (
 	"github.com/darmawan01/toldata"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/protobuf/proto"
 )
 
 func throwError(w http.ResponseWriter, message string, code int) {
@@ -20,7 +21,8 @@ func throwError(w http.ResponseWriter, message string, code int) {
 		ErrorMessage: message,
 		Timestamp:    time.Now().Unix(),
 	}
-	msg, err := json.Marshal(errorMessage)
+
+	msg, err := proto.Marshal(&errorMessage)
 	if err != nil {
 		http.Error(w, "{\"error-message\": \"internal-server-error\"}", http.StatusInternalServerError)
 	} else {
@@ -122,7 +124,7 @@ func (svc *TestServiceREST) InstallTestServiceMux(mux *http.ServeMux) {
 				return
 			}
 
-			var req toldata.Empty
+			var req Empty
 			err := json.NewDecoder(r.Body).Decode(&req)
 			if err != nil {
 				throwError(w, err.Error(), http.StatusBadRequest)
@@ -154,7 +156,7 @@ func (svc *TestServiceREST) InstallTestServiceMux(mux *http.ServeMux) {
 				return
 			}
 
-			var req toldata.Empty
+			var req Empty
 			err := json.NewDecoder(r.Body).Decode(&req)
 			if err != nil {
 				throwError(w, err.Error(), http.StatusBadRequest)

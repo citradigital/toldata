@@ -8,9 +8,10 @@ import (
 	"context"
 	"errors"
 	"github.com/darmawan01/toldata"
-	"github.com/gogo/protobuf/proto"
+	"google.golang.org/protobuf/proto"
+	"io"
+
 	nats "github.com/nats-io/nats.go"
-	io "io"
 )
 
 // Workaround for template problem
@@ -25,7 +26,7 @@ type TestServiceToldataInterface interface {
 
 	GetTestAB(ctx context.Context, req *TestARequest) (*TestAResponse, error)
 
-	GetTestGetIP(ctx context.Context, req *toldata.Empty) (*TestGetIPResponse, error)
+	GetTestGetIP(ctx context.Context, req *Empty) (*TestGetIPResponse, error)
 
 	FeedData(stream TestService_FeedDataToldataServer)
 
@@ -33,7 +34,7 @@ type TestServiceToldataInterface interface {
 
 	StreamDataAlt1(req *StreamDataRequest, stream TestService_StreamDataAlt1ToldataServer) error
 
-	TestEmpty(ctx context.Context, req *toldata.Empty) (*toldata.Empty, error)
+	TestEmpty(ctx context.Context, req *Empty) (*Empty, error)
 }
 
 type TestServiceToldataClient struct {
@@ -59,6 +60,9 @@ func (service *TestServiceToldataClient) ToldataHealthCheck(ctx context.Context,
 	functionName := "cdl.toldatatest/TestService/ToldataHealthCheck"
 
 	reqRaw, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errors.New(functionName + ":" + err.Error())
+	}
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {
@@ -148,7 +152,7 @@ func (service *TestServiceToldataClient) GetTestAB(ctx context.Context, req *Tes
 	}
 }
 
-func (service *TestServiceToldataClient) GetTestGetIP(ctx context.Context, req *toldata.Empty) (*TestGetIPResponse, error) {
+func (service *TestServiceToldataClient) GetTestGetIP(ctx context.Context, req *Empty) (*TestGetIPResponse, error) {
 	functionName := "cdl.toldatatest/TestService/GetTestGetIP"
 
 	if req == nil {
@@ -1015,7 +1019,7 @@ func (service *TestServiceToldataClient) StreamDataAlt1(ctx context.Context, req
 	}
 }
 
-func (service *TestServiceToldataClient) TestEmpty(ctx context.Context, req *toldata.Empty) (*toldata.Empty, error) {
+func (service *TestServiceToldataClient) TestEmpty(ctx context.Context, req *Empty) (*Empty, error) {
 	functionName := "cdl.toldatatest/TestService/TestEmpty"
 
 	if req == nil {
@@ -1030,7 +1034,7 @@ func (service *TestServiceToldataClient) TestEmpty(ctx context.Context, req *tol
 
 	if result.Data[0] == 0 {
 		// 0 means no error
-		p := &toldata.Empty{}
+		p := &Empty{}
 		err = proto.Unmarshal(result.Data[1:], p)
 		if err != nil {
 			return nil, err
@@ -1111,7 +1115,7 @@ func (service *TestServiceToldataServer) SubscribeTestService() (<-chan struct{}
 	subscriptions = append(subscriptions, sub)
 
 	sub, err = bus.Connection.QueueSubscribe("cdl.toldatatest/TestService/GetTestGetIP", "cdl.toldatatest/TestService", func(m *nats.Msg) {
-		var input toldata.Empty
+		var input Empty
 		err := proto.Unmarshal(m.Data, &input)
 		if err != nil {
 			bus.HandleError(m.Reply, err)
@@ -1231,7 +1235,7 @@ func (service *TestServiceToldataServer) SubscribeTestService() (<-chan struct{}
 	subscriptions = append(subscriptions, sub)
 
 	sub, err = bus.Connection.QueueSubscribe("cdl.toldatatest/TestService/TestEmpty", "cdl.toldatatest/TestService", func(m *nats.Msg) {
-		var input toldata.Empty
+		var input Empty
 		err := proto.Unmarshal(m.Data, &input)
 		if err != nil {
 			bus.HandleError(m.Reply, err)

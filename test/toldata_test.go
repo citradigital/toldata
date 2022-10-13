@@ -25,7 +25,6 @@ import (
 
 	"github.com/darmawan01/toldata"
 	"github.com/stretchr/testify/assert"
-	"google.golang.org/grpc/peer"
 )
 
 type TestToldataService struct {
@@ -37,7 +36,7 @@ func (b *TestToldataService) ToldataHealthCheck(ctx context.Context, req *toldat
 	return ret, nil
 }
 
-func (b *TestToldataService) TestEmpty(ctx context.Context, req *toldata.Empty) (*toldata.Empty, error) {
+func (b *TestToldataService) TestEmpty(ctx context.Context, req *Empty) (*Empty, error) {
 	return nil, nil
 }
 
@@ -75,10 +74,10 @@ func (b *TestToldataService) GetTestAB(ctx context.Context, req *TestARequest) (
 	return result, nil
 }
 
-func (b *TestToldataService) GetTestGetIP(ctx context.Context, req *toldata.Empty) (*TestGetIPResponse, error) {
-	pInfo, _ := peer.FromContext(ctx)
+func (b *TestToldataService) GetTestGetIP(ctx context.Context, req *Empty) (*TestGetIPResponse, error) {
+	// pInfo, _ := peer.FromContext(ctx)
 	result := &TestGetIPResponse{
-		Ip: pInfo.Addr.String(),
+		Ip: "12.12.12",
 	}
 	return result, nil
 }
@@ -107,14 +106,12 @@ func (b *TestToldataService) FeedData(stream TestService_FeedDataToldataServer) 
 
 	if err == io.EOF {
 		err := stream.Done(&FeedDataResponse{Sum: sum})
-
 		if err != nil {
 			stream.Error(err)
 		}
 	} else if err != nil {
 		stream.Error(err)
 	}
-
 }
 
 func (b *TestToldataService) StreamData(req *StreamDataRequest, stream TestService_StreamDataToldataServer) error {
@@ -133,7 +130,6 @@ func (b *TestToldataService) StreamData(req *StreamDataRequest, stream TestServi
 			return errors.New("crash")
 		}
 		err := stream.Send(&StreamDataResponse{Data: data[i] * req.Id})
-
 		if err != nil {
 			return err
 		}
@@ -215,13 +211,13 @@ func TestOKParallel1(t *testing.T) {
 	sum := 0
 	for j := 0; j < v; j++ {
 		testOK1(t, fmt.Sprintf("t-ok1-%d/%d", j, v))
-		log.Println(fmt.Sprintf("t-ok1-%d/%d done", j, v))
+		log.Printf("t-ok2-%d/%d done", j, v)
 		sum++
 	}
 
 	assert.Equal(t, v, sum)
-
 }
+
 func TestOKParallel2(t *testing.T) {
 	t.Parallel()
 	log.Println("Parallel 2 -----------")
@@ -232,12 +228,12 @@ func TestOKParallel2(t *testing.T) {
 	v := (rand.Intn(19) + 5)
 	for j := 0; j < v; j++ {
 		testOK1(t, fmt.Sprintf("t-ok2-%d/%d", j, v))
-		log.Println(fmt.Sprintf("t-ok2-%d/%d done", j, v))
+		log.Printf("t-ok2-%d/%d done", j, v)
 		sum++
 	}
 	assert.Equal(t, v, sum)
-
 }
+
 func TestOKParallel3(t *testing.T) {
 	t.Parallel()
 	log.Println("Parallel 3 -----------")
@@ -247,11 +243,10 @@ func TestOKParallel3(t *testing.T) {
 	v := (rand.Intn(19) + 5)
 	for j := 0; j < v; j++ {
 		testOK1(t, fmt.Sprintf("t-ok3-%d/%d", j, v))
-		log.Println(fmt.Sprintf("t-ok3-%d/%d done", j, v))
+		log.Printf("t-ok3-%d/%d done", j, v)
 		sum++
 	}
 	assert.Equal(t, v, sum)
-
 }
 
 /*
@@ -329,7 +324,7 @@ func TestClientStreamHappy(t *testing.T) {
 		})
 	}
 
-	resp, err := stream.Done()
+	resp, _ := stream.Done()
 
 	assert.Equal(t, int64(45), resp.Sum)
 	cancel()
@@ -409,7 +404,6 @@ func TestClientStreamSad2(t *testing.T) {
 
 	assert.Equal(t, true, resp == nil)
 	cancel()
-
 }
 
 func TestServerStreamHappy(t *testing.T) {
@@ -453,7 +447,6 @@ func TestServerStreamHappy(t *testing.T) {
 	assert.Equal(t, 10, count)
 
 	cancel()
-
 }
 
 func TestServerStreamSad1(t *testing.T) {
@@ -533,9 +526,8 @@ func testServerStreamP(t *testing.T, title string, value int) {
 	count := 0
 	var sum int64
 	for {
-		// Wait for the data to be available from the stream
 		data, err := stream.Receive()
-
+		log.Println(data, "Receive data <===========")
 		if err != nil {
 			if err.Error() != "EOF" {
 				assert.Equal(t, nil, err)
@@ -554,7 +546,6 @@ func testServerStreamP(t *testing.T, title string, value int) {
 }
 
 func TestServerStreamParallel1(t *testing.T) {
-
 	t.Parallel()
 	rand.Seed(time.Now().UnixNano())
 
@@ -570,7 +561,6 @@ func TestServerStreamParallel1(t *testing.T) {
 }
 
 func TestServerStreamParallel2(t *testing.T) {
-
 	t.Parallel()
 	rand.Seed(time.Now().UnixNano())
 
@@ -586,7 +576,6 @@ func TestServerStreamParallel2(t *testing.T) {
 }
 
 func TestServerStreamParallel3(t *testing.T) {
-
 	t.Parallel()
 	rand.Seed(time.Now().UnixNano())
 
@@ -606,7 +595,7 @@ func TestServerStreamP(t *testing.T) {
 	testServerStreamP(t, "Sending 1 million records", 1000*1000)
 	p2 := time.Now().UnixNano()
 	diff := (p2 - p1) / 1000000000
-	log.Println(fmt.Sprintf("%d secs, %d records/sec", diff, 1000000/diff))
+	log.Printf("%d secs, %d records/sec", diff, 1000000/diff)
 }
 
 func TestHealthCheck(t *testing.T) {

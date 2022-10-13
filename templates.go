@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/darmawan01/toldata"
+	"google.golang.org/protobuf/proto"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc/peer"
 )
@@ -23,7 +24,8 @@ func throwError(w http.ResponseWriter, message string, code int) {
 	  ErrorMessage: message,
 		Timestamp: time.Now().Unix(),
 	}
-  msg, err := json.Marshal(errorMessage)
+	
+	msg, err := proto.Marshal(&errorMessage)
 	if err != nil {
 		 http.Error(w, "{\"error-message\": \"internal-server-error\"}", http.StatusInternalServerError)
 	} else {
@@ -125,6 +127,7 @@ func _eof_grpc() error {
 
 {{ range .Services }}{{ $ServiceName := .Name }}
 type {{ $ServiceName }}GRPC struct {
+	Unimplemented{{ $ServiceName }}Server
 	Context context.Context
 	Bus     *toldata.Bus
 	Service *{{ $ServiceName }}ToldataClient
@@ -237,9 +240,10 @@ package {{ .PackageName }}
 import (
 	"context"
 	"errors"
-   io "io"
-	"github.com/gogo/protobuf/proto"
+    "io"
+   	"google.golang.org/protobuf/proto"
 	"github.com/darmawan01/toldata"
+	
 	nats "github.com/nats-io/nats.go"
 )
 
@@ -292,6 +296,9 @@ func (service *{{ $ServiceName }}ToldataClient) ToldataHealthCheck(ctx context.C
 	functionName := "{{ $Namespace }}/{{ $ServiceName }}/ToldataHealthCheck"
 	
 	reqRaw, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errors.New(functionName + ":" + err.Error())
+	}
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {

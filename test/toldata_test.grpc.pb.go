@@ -15,6 +15,7 @@ func _eof_grpc() error {
 }
 
 type TestServiceGRPC struct {
+	UnimplementedTestServiceServer
 	Context context.Context
 	Bus     *toldata.Bus
 	Service *TestServiceToldataClient
@@ -47,7 +48,7 @@ func (svc *TestServiceGRPC) GetTestAB(ctx context.Context, req *TestARequest) (*
 	return svc.Service.GetTestAB(ctx, req)
 }
 
-func (svc *TestServiceGRPC) GetTestGetIP(ctx context.Context, req *toldata.Empty) (*TestGetIPResponse, error) {
+func (svc *TestServiceGRPC) GetTestGetIP(ctx context.Context, req *Empty) (*TestGetIPResponse, error) {
 	return svc.Service.GetTestGetIP(ctx, req)
 }
 
@@ -132,6 +133,6 @@ func (svc *TestServiceGRPC) StreamDataAlt1(req *StreamDataRequest, stream TestSe
 
 }
 
-func (svc *TestServiceGRPC) TestEmpty(ctx context.Context, req *toldata.Empty) (*toldata.Empty, error) {
+func (svc *TestServiceGRPC) TestEmpty(ctx context.Context, req *Empty) (*Empty, error) {
 	return svc.Service.TestEmpty(ctx, req)
 }
