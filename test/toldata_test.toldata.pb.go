@@ -94,7 +94,11 @@ func (service *TestServiceToldataClient) GetTestA(ctx context.Context, req *Test
 	if req == nil {
 		return nil, errors.New("empty-request")
 	}
+
 	reqRaw, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errors.New(functionName + ":" + err.Error())
+	}
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {
@@ -126,7 +130,11 @@ func (service *TestServiceToldataClient) GetTestAB(ctx context.Context, req *Tes
 	if req == nil {
 		return nil, errors.New("empty-request")
 	}
+
 	reqRaw, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errors.New(functionName + ":" + err.Error())
+	}
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {
@@ -158,7 +166,11 @@ func (service *TestServiceToldataClient) GetTestGetIP(ctx context.Context, req *
 	if req == nil {
 		return nil, errors.New("empty-request")
 	}
+
 	reqRaw, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errors.New(functionName + ":" + err.Error())
+	}
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {
@@ -345,7 +357,12 @@ func (client *TestServiceToldataClient_FeedData) Send(req *FeedDataRequest) erro
 	if req == nil {
 		return errors.New("empty-request")
 	}
+
 	reqRaw, err := proto.Marshal(req)
+	if err != nil {
+		return errors.New(functionName + ":" + err.Error())
+	}
+
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, reqRaw)
 	if err != nil {
 		return errors.New(functionName + ":" + err.Error())
@@ -722,6 +739,10 @@ func (service *TestServiceToldataClient) StreamData(ctx context.Context, req *St
 		return nil, errors.New("empty-request")
 	}
 	reqRaw, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errors.New(functionName + ":" + err.Error())
+	}
+
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 
 	if err != nil {
@@ -989,6 +1010,10 @@ func (service *TestServiceToldataClient) StreamDataAlt1(ctx context.Context, req
 		return nil, errors.New("empty-request")
 	}
 	reqRaw, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errors.New(functionName + ":" + err.Error())
+	}
+
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 
 	if err != nil {
@@ -1025,7 +1050,11 @@ func (service *TestServiceToldataClient) TestEmpty(ctx context.Context, req *Emp
 	if req == nil {
 		return nil, errors.New("empty-request")
 	}
+
 	reqRaw, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errors.New(functionName + ":" + err.Error())
+	}
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {

@@ -556,7 +556,12 @@ func (client *{{ $ServiceName }}ToldataClient_{{ .Name }}) Send(req *{{ stripLas
 	if req == nil {
 		return errors.New("empty-request")
 	}
+	
 	reqRaw, err := proto.Marshal(req)
+	if err != nil {
+		return errors.New(functionName + ":" + err.Error())
+	}
+
 	result, err := client.Service.Bus.Connection.RequestWithContext(client.Context, functionName, reqRaw)
 	if err != nil {
 		return errors.New(functionName + ":" + err.Error())
@@ -736,7 +741,11 @@ func (service *{{ $ServiceName }}ToldataClient) {{ .Name }}(ctx context.Context,
 	if req == nil {
 		return nil, errors.New("empty-request")
 	}
-	reqRaw, err := proto.Marshal(req)	
+	reqRaw, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errors.New(functionName + ":" + err.Error())
+	}
+		
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 {{ else }}
 func (service *{{ $ServiceName }}ToldataClient) {{ .Name }}(ctx context.Context) (*{{ $ServiceName }}ToldataClient_{{ .Name }}, error) {
@@ -781,7 +790,11 @@ func (service *{{ $ServiceName }}ToldataClient) {{ .Name }}(ctx context.Context,
 	if req == nil {
 		return nil, errors.New("empty-request")
 	}
+
 	reqRaw, err := proto.Marshal(req)
+	if err != nil {
+		return nil, errors.New(functionName + ":" + err.Error())
+	}
 
 	result, err := service.Bus.Connection.RequestWithContext(ctx, functionName, reqRaw)
 	if err != nil {
