@@ -374,7 +374,7 @@ func Create{{ $ServiceName }}_{{ .Name }}ToldataServerImpl(ctx context.Context) 
 	
 	t.Context = ctx
 	t.request = make(chan *{{ stripLastDot $InputType $Namespace }})
-	t.response = make(chan *{{ stripLastDot $OutputType $Namespace }})
+	t.response = make(chan *{{ stripLastDot $OutputType $Namespace }}, 1024)
 	t.cancel = make(chan struct{})
 	t.eof = make(chan struct{})
 	t.done = make(chan struct{})
